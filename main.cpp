@@ -2,6 +2,7 @@
 
 int main()
 {
-    Engine engine;
-    engine.Init();
+    Engine engine(100,10,10,10);
+
+
 }

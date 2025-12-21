@@ -1,15 +1,22 @@
 #pragma once
 #include <random>
+#include "kernels.h"
+#include "common.cuh"
 
-static std::random_device seed = std::random_device();
+
+
+static std::mt19937 seed;
 
 class Engine
 {
     public:
-    void Init(int n,int X,int Y,int Z);
+    Engine(int n,int X,int Y,int Z);
     void Step();
 
     private:
-    void *buffer;
+    float *h_buffer;
+    float* d_buffer;
     std::mt19937 gen;
+    Particles particles;
+    size_t number;
 };
