@@ -8,4 +8,5 @@ add_executable(water
         engine.cpp
         kernels.cu
         common.cuh
-        kernels.h)
+        kernels.h
+        main.cpp)
