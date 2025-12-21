@@ -26,18 +26,18 @@ struct __align__(16) Particles
 
     __host__ __device__ void Init(float* buffer,size_t n)
     {
-        posX = buffer; posY = buffer + n; posZ = buffer + 2*n;
+        posX = buffer + 0*n; posY = buffer + 1*n; posZ = buffer + 2*n;
         velX = buffer +3*n; velY = buffer+4*n; velZ = buffer + 5*n;
 
-        c00 = buffer+4*n; c01=buffer+5*n; c02 = buffer+6*n;
-        c10 = buffer+7*n; c11=buffer+8*n; c12=buffer+9*n;
-        c20 = buffer+10*n; c21=buffer+11*n; c22=buffer+12*n;
+        c00 = buffer+6*n; c01=buffer+7*n; c02 = buffer+8*n;
+        c10 = buffer+9*n; c11=buffer+10*n; c12=buffer+11*n;
+        c20 = buffer+12*n; c21=buffer+13*n; c22=buffer+14*n;
 
-        f00=buffer+13*n; f01=buffer+14*n; f02=buffer+15*n;
-        f10=buffer+16*n; f11=buffer+17*n; f12=buffer+18*n;
-        f20=buffer+19*n; f21=buffer+20*n; f22=buffer+21*n;
+        f00=buffer+15*n; f01=buffer+16*n; f02=buffer+17*n;
+        f10=buffer+18*n; f11=buffer+19*n; f12=buffer+20*n;
+        f20=buffer+21*n; f21=buffer+22*n; f22=buffer+23*n;
 
-        V = buffer+22*n;
-        m = buffer+23*n;
+        V = buffer+24*n;
+        m = buffer+25*n;
     }
 };
