@@ -3,41 +3,44 @@
 #include <cuda_bf16.h>
 #include <cuda_runtime_api.h>
 
-constexpr size_t PARTICLE_SIZE = 26;
+enum ParticleAttr
+{
+    POS_X=0, POS_Y, POS_Z,
+
+    VEL_X, VEL_Y, VEL_Z,
+
+    C00, C01, C02,
+    C10, C11, C12,
+    C20, C21, C22,
+
+    F00, F01, F02,
+    F10, F11, F12,
+    F20, F21, F22,
+
+    VOL,
+    MASS,
+    PARTICLE_SIZE
+};
+
 
 struct __align__(16) Particles
 {
-    float* posX;float* posY;float* posZ;
-    float* velX;float* velY;float* velZ;
+    float* pos[3];
+    float* vel[3];
     //TODO: change to halfs if possible
-    float* c00; float* c01; float* c02;
-    float* c10; float* c11; float* c12;
-    float* c20; float* c21; float* c22;
-
-    float* f00; float* f01; float* f02;
-    float* f10; float* f11; float* f12;
-    float* f20; float* f21; float* f22;
-
-    float* V;
+    float* c[9];
+    float* f[9];
+    float* v;
     float* m;
 
 
-    Particles(){}
-
-    __host__ __device__ void Init(float* buffer,size_t n)
+    __host__ __device__ Particles(float* buffer,size_t n)
     {
-        posX = buffer + 0*n; posY = buffer + 1*n; posZ = buffer + 2*n;
-        velX = buffer +3*n; velY = buffer+4*n; velZ = buffer + 5*n;
-
-        c00 = buffer+6*n; c01=buffer+7*n; c02 = buffer+8*n;
-        c10 = buffer+9*n; c11=buffer+10*n; c12=buffer+11*n;
-        c20 = buffer+12*n; c21=buffer+13*n; c22=buffer+14*n;
-
-        f00=buffer+15*n; f01=buffer+16*n; f02=buffer+17*n;
-        f10=buffer+18*n; f11=buffer+19*n; f12=buffer+20*n;
-        f20=buffer+21*n; f21=buffer+22*n; f22=buffer+23*n;
-
-        V = buffer+24*n;
-        m = buffer+25*n;
+        for (int i=0;i<3;i++) pos[i] = buffer + n * (POS_X+i);
+        for (int i=0;i<3;i++) vel[i] = buffer + n * (VEL_X+i);
+        for (int i=0;i<9;i++) c[i] = buffer + n * (C00+i);
+        for (int i=0;i<9;i++) f[i] = buffer + n * (F00+i);
+        v = buffer + n * VOL;
+        m = buffer + n * MASS;
     }
 };

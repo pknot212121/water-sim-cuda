@@ -1,0 +1,1 @@
+void summonTestKernel(int number);
