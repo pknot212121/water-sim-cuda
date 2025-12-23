@@ -1,1 +1,2 @@
-void summonTestKernel(int number);
+#include "common.cuh"
+void summonTestKernel(Particles p,int number);

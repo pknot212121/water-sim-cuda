@@ -24,9 +24,14 @@ Engine::Engine(int n,int X,int Y,int Z)
         std::cerr << "Błąd alokacji: " << cudaGetErrorString(err) << std::endl;
         exit(1);
     }
-    cudaMemcpy(d_buffer, h_buffer, n * PARTICLE_SIZE * sizeof(float), cudaMemcpyHostToDevice);
+    err = cudaMemcpy(d_buffer, h_buffer, n * PARTICLE_SIZE * sizeof(float), cudaMemcpyHostToDevice);
+    if (err != cudaSuccess)
+    {
+        std::cerr << "Błąd kopiowania: " << cudaGetErrorString(err) << std::endl;
+        exit(1);
+    }
     Particles p = getParticles();
-    summonTestKernel(number);
+    summonTestKernel(p,number);
     cudaDeviceSynchronize();
 }
 

@@ -1,7 +1,6 @@
 #pragma once
 #include <random>
 #include "kernels.h"
-#include "common.cuh"
 
 
 class Engine

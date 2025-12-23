@@ -1,15 +1,16 @@
 #include <stdio.h>
 #include "kernels.h"
 
-__global__ void testKernel()
+
+__global__ void testKernel(Particles p)
 {
     const int threadIndex = threadIdx.x;
-    printf("Hello Thread: %d\n",threadIndex);
+    printf("Hello Particle: %f\n",p.pos[0][threadIndex]);
 }
 
-void summonTestKernel(int number)
+void summonTestKernel(Particles p,int number)
 {
-    testKernel<<<1,number>>>();
+    testKernel<<<1,number>>>(p);
 }
 
 
