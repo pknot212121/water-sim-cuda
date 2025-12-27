@@ -2,6 +2,7 @@
 #include <crt/host_defines.h>
 #include <cuda_bf16.h>
 #include <cuda_runtime_api.h>
+#include <c++/13/cstdint>
 
 enum ParticleAttr
 {
@@ -22,6 +23,11 @@ enum ParticleAttr
     PARTICLE_SIZE
 };
 
+constexpr size_t SIZE_X = 1024;
+constexpr size_t SIZE_Y = 1024;
+constexpr size_t SIZE_Z = 1024;
+
+constexpr size_t CELL_SIZE = 16;
 
 struct __align__(16) Particles
 {
@@ -44,3 +50,11 @@ struct __align__(16) Particles
         m = buffer + n * MASS;
     }
 };
+
+struct __align__(16) Grid
+{
+    float* mass;
+    float* momentum[3];
+};
+
+inline bool* occupancy;
