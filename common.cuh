@@ -1,5 +1,4 @@
 #include <vector_types.h>
-#include <crt/host_defines.h>
 #include <cuda_bf16.h>
 #include <cuda_runtime_api.h>
 #include <c++/13/cstdint>
@@ -29,6 +28,8 @@ constexpr size_t SIZE_Z = 1024;
 
 constexpr size_t CELL_SIZE = 16;
 
+constexpr size_t GRID_SIZE = SIZE_X*SIZE_Y*SIZE_Z*CELL_SIZE;
+
 struct __align__(16) Particles
 {
     float* pos[3];
@@ -57,4 +58,3 @@ struct __align__(16) Grid
     float* momentum[3];
 };
 
-inline bool* occupancy;

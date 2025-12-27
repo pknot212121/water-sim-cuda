@@ -23,6 +23,8 @@ class Engine
         CUdevice device;
         CUcontext context;
         size_t granularity;
+        size_t cellsPerPage;
         CUdeviceptr virtPtr;
+        std::vector<CUmemGenericAllocationHandle> handles;
 
 };
