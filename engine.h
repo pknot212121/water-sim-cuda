@@ -31,5 +31,6 @@ class Engine
         std::vector<CUmemGenericAllocationHandle> handles;
         size_t gridAlignedSize = GRID_SIZE;
         size_t pageCount;
+        size_t blocksPerGrid;
 
 };

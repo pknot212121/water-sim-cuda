@@ -30,6 +30,8 @@ constexpr size_t CELL_SIZE = 16;
 
 constexpr size_t GRID_SIZE = SIZE_X*SIZE_Y*SIZE_Z*CELL_SIZE;
 
+constexpr size_t THREADS_PER_BLOCK = 256;
+
 struct __align__(16) Particles
 {
     float* pos[3];
@@ -49,6 +51,17 @@ struct __align__(16) Particles
         for (int i=0;i<9;i++) f[i] = buffer + n * (F00+i);
         v = buffer + n * VOL;
         m = buffer + n * MASS;
+    }
+
+    __device__ __forceinline__ float3 multiplyCxd(
+        float c00, float c01, float c02,
+        float c10, float c11, float c12,
+        float c20, float c21, float c22, float3 d)
+    {
+        return float3(
+            c00*d.x+c01*d.y+c02*d.z,
+            c10*d.x+c11*d.y+c12*d.z,
+            c20*d.x+c21*d.y+c22*d.z);
     }
 };
 
@@ -76,6 +89,7 @@ struct __align__(16) Grid
         if (z<0 || z>=SIZE_Z) return false;
         return true;
     }
+
 };
 
 

@@ -11,7 +11,7 @@ __global__ void testKernel(Particles p)
 
 __global__ void occupancyCheckInit(Particles p, size_t cellsPerPage,bool* occupancy)
 {
-    const int threadIndex = threadIdx.x;
+    const int threadIndex = blockIdx.x * blockDim.x + threadIdx.x;
     const int posX = (int)(p.pos[0][threadIndex]-0.5f);
     const int posY = (int)(p.pos[1][threadIndex]-0.5f);
     const int posZ = (int)(p.pos[2][threadIndex]-0.5f);
@@ -39,6 +39,10 @@ __global__ void p2GTransfer(Particles p,Grid g,int number)
     const int posY = (int)(p.pos[1][threadIndex]-0.5f);
     const int posZ = (int)(p.pos[2][threadIndex]-0.5f);
 
+    float c00 = p.c[0][threadIndex]; float c01 = p.c[1][threadIndex]; float c02 = p.c[2][threadIndex];
+    float c10 = p.c[3][threadIndex]; float c11 = p.c[4][threadIndex]; float c12 = p.c[5][threadIndex];
+    float c20 = p.c[6][threadIndex]; float c21 = p.c[7][threadIndex]; float c22 = p.c[8][threadIndex];
+
     for (int i=0;i<3;i++)
     {
         for (int j=0;j<3;j++)
@@ -48,12 +52,13 @@ __global__ void p2GTransfer(Particles p,Grid g,int number)
                 if (g.isInBounds(posX+i,posY+j,posZ+k))
                 {
                     size_t cellIdx = g.getGridIdx(posX+i,posY+j,posZ+k);
-                    float d[3] = {p.pos[0][threadIndex] - (posX+i),p.pos[1][threadIndex] - (posY+j),p.pos[2][threadIndex] - (posZ+k)};
-                    float weight = g.spline(d[0])*g.spline(d[1])*g.spline(d[2]);
+                    float3 d = {p.pos[0][threadIndex] - (posX+i),p.pos[1][threadIndex] - (posY+j),p.pos[2][threadIndex] - (posZ+k)};
+                    float weight = g.spline(d.x)*g.spline(d.y)*g.spline(d.z);
                     atomicAdd(&g.mass[cellIdx],p.m[threadIndex]*weight);
-                    atomicAdd(&g.momentum[0][cellIdx],weight*p.m[threadIndex]*p.vel[0][threadIndex]);
-                    atomicAdd(&g.momentum[1][cellIdx],weight*p.m[threadIndex]*p.vel[1][threadIndex]);
-                    atomicAdd(&g.momentum[2][cellIdx],weight*p.m[threadIndex]*p.vel[2][threadIndex]);
+                    float3 Cxd = p.multiplyCxd(c00,c01,c02,c10,c11,c12,c20,c21,c22,d);
+                    atomicAdd(&g.momentum[0][cellIdx],weight*p.m[threadIndex]*p.vel[0][threadIndex]+Cxd.x);
+                    atomicAdd(&g.momentum[1][cellIdx],weight*p.m[threadIndex]*p.vel[1][threadIndex]+Cxd.y);
+                    atomicAdd(&g.momentum[2][cellIdx],weight*p.m[threadIndex]*p.vel[2][threadIndex]+Cxd.z);
                 }
             }
         }
@@ -116,11 +121,9 @@ Engine::Engine(int n)
 {
     number = n;
     gen = std::mt19937(std::random_device{}());
+    blocksPerGrid = (number+THREADS_PER_BLOCK-1) / THREADS_PER_BLOCK;
     initCuda();
     initParticles();
-    testKernel<<<1,number>>>(getParticles());
-    cudaDeviceSynchronize();
-    std::cout << "GRANULARITY: " << granularity << std::endl;
     initGrid();
     step();
     getchar();
@@ -135,9 +138,7 @@ Engine::~Engine()
 
 void Engine::step()
 {
-    int threadsPerBlock = 256;
-    int blocksPerGrid = (number+threadsPerBlock-1) / threadsPerBlock;
-    dim3 blockDim(threadsPerBlock);
+    dim3 blockDim(THREADS_PER_BLOCK);
     dim3 gridDim(blocksPerGrid);
     p2GTransfer<<<gridDim,blockDim>>>(getParticles(),getGrid(),number);
     handleCUDAError(cudaDeviceSynchronize());
@@ -192,17 +193,20 @@ void Engine::initGrid()
     bool* occupancy_d;
     handleCUDAError(cudaMalloc((void**)&occupancy_d,pageCount));
     handleCUDAError(cudaMemset(occupancy_d,0,pageCount));
-    occupancyCheckInit<<<1,number>>>(getParticles(),cellsPerPage,occupancy_d);
+    dim3 blockDim(THREADS_PER_BLOCK);
+    dim3 gridDim(blocksPerGrid);
+    occupancyCheckInit<<<gridDim,blockDim>>>(getParticles(),cellsPerPage,occupancy_d);
     handleCUDAError(cudaDeviceSynchronize());
     std::vector<unsigned char> occupancy_h(pageCount);
     handleCUDAError(cudaMemcpy(occupancy_h.data(),occupancy_d,occupancy_h.size()*sizeof(occupancy_h[0]),cudaMemcpyDeviceToHost));
     CUmemAllocationProp prop = getProp();
+    int occupiedCount = 0;
     for (int i=0;i<pageCount;i++)
     {
-        std::cout << "IS OCCUPIED: "<< (int)occupancy_h[i] << std::endl;
         size_t attributeSize = roundUp(SIZE_X * SIZE_Y * SIZE_Z * sizeof(float),granularity);
         if (occupancy_h[i] !=0)
         {
+            occupiedCount++;
             for (int j=0;j<4;j++)
             {
                 CUmemGenericAllocationHandle h;
@@ -215,6 +219,8 @@ void Engine::initGrid()
 
         }
     }
+    std::cout << "OCCUPIED: " << occupiedCount << std::endl;
+    std::cout << "PAGE COUNT: " << pageCount << std::endl;
     handleCUDAError(cudaFree(occupancy_d));
 
 }
