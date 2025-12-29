@@ -27,6 +27,8 @@ constexpr size_t SIZE_Y = 1024;
 constexpr size_t SIZE_Z = 1024;
 
 constexpr size_t CELL_SIZE = 16;
+constexpr size_t SHARED_GRID_SIZE = 512;
+constexpr size_t SHARED_GRID_HEIGHT = 8;
 
 constexpr size_t GRID_SIZE = SIZE_X*SIZE_Y*SIZE_Z*CELL_SIZE;
 

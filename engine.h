@@ -5,6 +5,12 @@
 #include "common.cuh"
 #include <iostream>
 
+#include <thrust/sort.h>
+#include <thrust/execution_policy.h>
+#include <thrust/device_ptr.h>
+
+
+
 class Engine
 {
     public:
@@ -12,15 +18,18 @@ class Engine
         ~Engine();
         void step();
         inline Particles getParticles(){ return Particles(d_buffer,number); }
+        inline Particles getParticles_B(){ return Particles(d_buffer_B,number);}
         Grid getGrid();
         void initParticles();
         CUmemAllocationProp getProp();
         CUmemAccessDesc getDesc();
         void initCuda();
         void initGrid();
+        void sortParticles();
     private:
         float *h_buffer;
         float* d_buffer;
+        float* d_buffer_B;
         std::mt19937 gen;
         size_t number;
         CUdevice device;

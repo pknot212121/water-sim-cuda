@@ -34,35 +34,95 @@ __global__ void occupancyCheckInit(Particles p, size_t cellsPerPage,bool* occupa
 __global__ void p2GTransfer(Particles p,Grid g,int number)
 {
     const int threadIndex = blockIdx.x * blockDim.x + threadIdx.x;
-    if (threadIndex>=number) return;
+    const int firstIdx = blockIdx.x * blockDim.x;
+
     const int posX = (int)(p.pos[0][threadIndex]-0.5f);
     const int posY = (int)(p.pos[1][threadIndex]-0.5f);
     const int posZ = (int)(p.pos[2][threadIndex]-0.5f);
+    const int minX = (int)(p.pos[0][firstIdx]-0.5f);
+    const int minY = (int)(p.pos[1][firstIdx]-0.5f);
+    const int minZ = (int)(p.pos[2][firstIdx]-0.5f);
 
     float c00 = p.c[0][threadIndex]; float c01 = p.c[1][threadIndex]; float c02 = p.c[2][threadIndex];
     float c10 = p.c[3][threadIndex]; float c11 = p.c[4][threadIndex]; float c12 = p.c[5][threadIndex];
     float c20 = p.c[6][threadIndex]; float c21 = p.c[7][threadIndex]; float c22 = p.c[8][threadIndex];
 
-    for (int i=0;i<3;i++)
+    const float3 pPos = {p.pos[0][threadIndex],p.pos[1][threadIndex],p.pos[2][threadIndex]};
+    const float3 pVel = {p.vel[0][threadIndex],p.vel[1][threadIndex],p.vel[2][threadIndex]};
+    const float pM = p.m[threadIndex];
+
+    __shared__ float shMass[SHARED_GRID_SIZE];
+    __shared__ float shMomX[SHARED_GRID_SIZE];
+    __shared__ float shMomY[SHARED_GRID_SIZE];
+    __shared__ float shMomZ[SHARED_GRID_SIZE];
+    for (int i=threadIdx.x;i<SHARED_GRID_SIZE;i+=blockDim.x)
     {
-        for (int j=0;j<3;j++)
-        {
-            for (int k=0;k<3;k++)
-            {
-                if (g.isInBounds(posX+i,posY+j,posZ+k))
-                {
-                    size_t cellIdx = g.getGridIdx(posX+i,posY+j,posZ+k);
-                    float3 d = {p.pos[0][threadIndex] - (posX+i),p.pos[1][threadIndex] - (posY+j),p.pos[2][threadIndex] - (posZ+k)};
-                    float weight = g.spline(d.x)*g.spline(d.y)*g.spline(d.z);
-                    atomicAdd(&g.mass[cellIdx],p.m[threadIndex]*weight);
-                    float3 Cxd = p.multiplyCxd(c00,c01,c02,c10,c11,c12,c20,c21,c22,d);
-                    atomicAdd(&g.momentum[0][cellIdx],weight*p.m[threadIndex]*p.vel[0][threadIndex]+Cxd.x);
-                    atomicAdd(&g.momentum[1][cellIdx],weight*p.m[threadIndex]*p.vel[1][threadIndex]+Cxd.y);
-                    atomicAdd(&g.momentum[2][cellIdx],weight*p.m[threadIndex]*p.vel[2][threadIndex]+Cxd.z);
-                }
-            }
-        }
+        shMass[i] = 0;
+        shMomX[i] = 0;
+        shMomY[i] = 0;
+        shMomZ[i] = 0;
     }
+
+    __syncthreads();
+    if (threadIndex<number)
+    {
+        for (int i=0;i<3;i++)
+            for (int j=0;j<3;j++)
+                for (int k=0;k<3;k++)
+                    if (g.isInBounds(posX+i,posY+j,posZ+k))
+                    {
+                        size_t cellIdx = g.getGridIdx(posX+i,posY+j,posZ+k);
+
+                        int dx = posX + i -minX;
+                        int dy = posY + j - minY;
+                        int dz = posZ + k - minZ;
+                        int localIdx = dz * (SHARED_GRID_HEIGHT*SHARED_GRID_HEIGHT) + dy * SHARED_GRID_HEIGHT + dx;
+
+
+                        float3 d = {pPos.x - (posX+i),pPos.y - (posY+j),pPos.z - (posZ+k)};
+                        float weight = g.spline(d.x)*g.spline(d.y)*g.spline(d.z);
+                        float weightedMass = pM * weight;
+                        float3 Cxd = p.multiplyCxd(c00,c01,c02,c10,c11,c12,c20,c21,c22,d);
+                        float velX = weightedMass*pVel.x+Cxd.x;
+                        float velY = weightedMass*pVel.y+Cxd.y;
+                        float velZ = weightedMass*pVel.z+Cxd.z;
+
+                        if (dx>=0 && dx<SHARED_GRID_HEIGHT && dy>=0 && dy<SHARED_GRID_HEIGHT && dz>=0 && dz<SHARED_GRID_HEIGHT)
+                        {
+                            atomicAdd(&shMass[localIdx],weightedMass);
+                            atomicAdd(&shMomX[localIdx],velX);
+                            atomicAdd(&shMomY[localIdx],velY);
+                            atomicAdd(&shMomZ[localIdx],velZ);
+                        }
+                        // else
+                        // {
+                        //     atomicAdd(&g.mass[cellIdx],weightedMass);
+                        //     atomicAdd(&g.momentum[0][cellIdx],velX);
+                        //     atomicAdd(&g.momentum[1][cellIdx],velY);
+                        //     atomicAdd(&g.momentum[2][cellIdx],velZ);
+                        // }
+
+                    }
+    }
+
+    __syncthreads();
+    for (int i=threadIdx.x;i<SHARED_GRID_SIZE;i+=blockDim.x)
+    {
+        int gx = minX + (i % SHARED_GRID_HEIGHT);
+        int gy = minY + (i / SHARED_GRID_HEIGHT) % SHARED_GRID_HEIGHT;
+        int gz = minZ + i / (SHARED_GRID_HEIGHT * SHARED_GRID_HEIGHT);
+        size_t gIdx = g.getGridIdx(gx, gy, gz);
+        if (shMass[i]>1e-9)
+        {
+            atomicAdd(&g.mass[gIdx],shMass[i]);
+            atomicAdd(&g.momentum[0][gIdx],shMomX[i]);
+            atomicAdd(&g.momentum[1][gIdx],shMomY[i]);
+            atomicAdd(&g.momentum[2][gIdx],shMomZ[i]);
+        }
+
+    }
+
+
 }
 
 __global__ void gridUpdate(Grid g,size_t cellsPerPage,int* active, size_t numOfActive)
@@ -84,6 +144,30 @@ __global__ void gridUpdate(Grid g,size_t cellsPerPage,int* active, size_t numOfA
         g.momentum[1][threadIndex] = velocity.y;
         g.momentum[2][threadIndex] = velocity.z;
     }
+}
+
+__global__ void setKeys(Particles p,size_t* keys,int number)
+{
+    const int threadIndex = blockIdx.x * blockDim.x + threadIdx.x;
+    if (threadIndex>=number) return;
+    const int posX = (int)(p.pos[0][threadIndex]);
+    const int posY = (int)(p.pos[1][threadIndex]);
+    const int posZ = (int)(p.pos[2][threadIndex]);
+    size_t key = posZ * SIZE_X * SIZE_Y + posY * SIZE_X + posX;
+    keys[threadIndex] = key;
+}
+
+__global__ void reorderParticles(Particles p1, Particles p2,int number,int* values)
+{
+    const int threadIndex = blockIdx.x * blockDim.x + threadIdx.x;
+    if (threadIndex>=number) return;
+    size_t oldIdx = values[threadIndex];
+    for (int i=0;i<3;i++) p2.pos[i][threadIndex] = p1.pos[i][oldIdx];
+    for (int i=0;i<3;i++) p2.vel[i][threadIndex] = p1.vel[i][oldIdx];
+    for (int i=0;i<9;i++) p2.c[i][threadIndex] = p1.c[i][oldIdx];
+    for (int i=0;i<9;i++) p2.f[i][threadIndex] = p1.f[i][oldIdx];
+    p2.v[threadIndex] = p1.v[oldIdx];
+    p2.m[threadIndex] = p1.m[oldIdx];
 }
 
 __global__ void gridTest(Grid g,int targetX, int targetY, int targetZ)
@@ -145,6 +229,7 @@ Engine::Engine(int n)
     blocksPerGrid = (number+THREADS_PER_BLOCK-1) / THREADS_PER_BLOCK;
     initCuda();
     initParticles();
+    sortParticles();
     initGrid();
     step();
     getchar();
@@ -154,11 +239,13 @@ Engine::~Engine()
 {
     delete[] h_buffer;
     cudaFree(d_buffer);
+    cudaFree(d_buffer_B);
     cuCtxPopCurrent(&context);
 }
 
 void Engine::step()
 {
+    sortParticles();
     dim3 blockDim(THREADS_PER_BLOCK);
     dim3 gridDim(blocksPerGrid);
     p2GTransfer<<<gridDim,blockDim>>>(getParticles(),getGrid(),number);
@@ -197,6 +284,7 @@ void Engine::initParticles()
         h_buffer[i + number * (PARTICLE_SIZE - 1)] = 10;
     }
     handleCUDAError(cudaMalloc((void**)&d_buffer, number * PARTICLE_SIZE * sizeof(float)));
+    handleCUDAError(cudaMalloc((void**)&d_buffer_B,number * PARTICLE_SIZE * sizeof(float)));
     handleCUDAError(cudaMemcpy(d_buffer, h_buffer, number * PARTICLE_SIZE * sizeof(float), cudaMemcpyHostToDevice));
 
 }
@@ -251,6 +339,22 @@ void Engine::initGrid()
     std::cout << "OCCUPIED: " << occupiedCount << std::endl;
     std::cout << "PAGE COUNT: " << pageCount << std::endl;
     handleCUDAError(cudaFree(occupancy_d));
+
+}
+
+void Engine::sortParticles()
+{
+    size_t *d_keys;
+    int *d_values;
+    handleCUDAError(cudaMalloc((void**)&d_keys,number*sizeof(size_t)));
+    handleCUDAError(cudaMalloc((void**)&d_values,number*sizeof(int)));
+    setKeys<<<blocksPerGrid,THREADS_PER_BLOCK>>>(getParticles(),d_keys,number);
+    thrust::sequence(thrust::device,d_values,d_values+number);
+    thrust::sort_by_key(thrust::device,d_keys,d_keys+number,d_values);
+    Particles p1 = getParticles();
+    Particles p2 = getParticles_B();
+    reorderParticles<<<blocksPerGrid,THREADS_PER_BLOCK>>>(p1,p2,number,d_values);
+    std::swap(d_buffer,d_buffer_B);
 
 }
 

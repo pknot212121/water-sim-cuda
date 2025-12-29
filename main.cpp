@@ -2,7 +2,7 @@
 
 int main()
 {
-    Engine engine(1000);
+    Engine engine(1000000);
 
 
 }
