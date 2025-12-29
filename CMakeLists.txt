@@ -5,10 +5,8 @@ set(CMAKE_CXX_STANDARD 20)
 find_package(CUDAToolkit REQUIRED)
 add_executable(water
         engine.h
-        engine.cpp
-        kernels.cu
+        engine.cu
         common.cuh
-        kernels.h
         main.cpp)
 
 target_link_libraries(water

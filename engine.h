@@ -1,20 +1,23 @@
 #pragma once
 #include <random>
-#include "kernels.h"
 #include "cuda.h"
-
+#include <stdio.h>
+#include "common.cuh"
+#include <iostream>
 
 class Engine
 {
     public:
         Engine(int n);
         ~Engine();
-        void Step();
+        void step();
         inline Particles getParticles(){ return Particles(d_buffer,number); }
-        void InitParticles();
-        void InitCuda();
-        void InitGrid();
-
+        Grid getGrid();
+        void initParticles();
+        CUmemAllocationProp getProp();
+        CUmemAccessDesc getDesc();
+        void initCuda();
+        void initGrid();
     private:
         float *h_buffer;
         float* d_buffer;
@@ -26,5 +29,7 @@ class Engine
         size_t cellsPerPage;
         CUdeviceptr virtPtr;
         std::vector<CUmemGenericAllocationHandle> handles;
+        size_t gridAlignedSize = GRID_SIZE;
+        size_t pageCount;
 
 };

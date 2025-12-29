@@ -56,5 +56,27 @@ struct __align__(16) Grid
 {
     float* mass;
     float* momentum[3];
+
+    __host__ __device__ size_t getGridIdx(int x,int y,int z)
+    {
+        return (size_t)z * SIZE_X*SIZE_Y + (size_t)y * SIZE_X + (size_t)x;
+    }
+
+    __host__ __device__ float spline(float x)
+    {
+        if (fabsf(x)<0.5) return 0.75-x*x;
+        if (fabsf(x)>=0.5 && fabsf(x)<1.5) return (1.5-fabsf(x))*(1.5-fabsf(x))*0.5;
+        return 0.0f;
+    }
+
+    __host__ __device__ bool isInBounds(int x,int y,int z)
+    {
+        if (x<0 || x>=SIZE_X) return false;
+        if (y<0 || y>=SIZE_Y) return false;
+        if (z<0 || z>=SIZE_Z) return false;
+        return true;
+    }
 };
+
+
 
