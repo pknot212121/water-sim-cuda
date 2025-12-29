@@ -65,6 +65,27 @@ __global__ void p2GTransfer(Particles p,Grid g,int number)
     }
 }
 
+__global__ void gridUpdate(Grid g,size_t cellsPerPage,int* active, size_t numOfActive)
+{
+    const int globalThreadIndex = blockIdx.x * blockDim.x + threadIdx.x;
+    const int pageIdx = globalThreadIndex / cellsPerPage;
+    if (pageIdx >= numOfActive) return;
+    const int localIdx = globalThreadIndex % cellsPerPage;
+    const int threadIndex = active[pageIdx] * cellsPerPage + localIdx;
+    float mass = g.mass[threadIndex];
+    float3 momentum = {g.momentum[0][threadIndex],g.momentum[1][threadIndex],g.momentum[2][threadIndex]};
+    float3 velocity = {0.0f,0.0f,0.0f};
+    if (mass> 1e-9f)
+    {
+        velocity.x += momentum.x/mass;
+        velocity.y += momentum.y/mass - GRAVITY*DT;
+        velocity.z += momentum.z/mass;
+        g.momentum[0][threadIndex] = velocity.x;
+        g.momentum[1][threadIndex] = velocity.y;
+        g.momentum[2][threadIndex] = velocity.z;
+    }
+}
+
 __global__ void gridTest(Grid g,int targetX, int targetY, int targetZ)
 {
     size_t idx = g.getGridIdx(targetX,targetY,targetZ);
@@ -142,6 +163,14 @@ void Engine::step()
     dim3 gridDim(blocksPerGrid);
     p2GTransfer<<<gridDim,blockDim>>>(getParticles(),getGrid(),number);
     handleCUDAError(cudaDeviceSynchronize());
+    size_t activePageThreadCount = activeIndices.size() * cellsPerPage;
+    size_t blocksPerActive = (activePageThreadCount+THREADS_PER_BLOCK-1)/THREADS_PER_BLOCK;
+    std::cout << "SIZE: " << activeIndices.size() << std::endl;
+    int* d_active;
+    handleCUDAError(cudaMalloc((void**)&d_active,activeIndices.size()*sizeof(float)));
+    handleCUDAError(cudaMemcpy(d_active,activeIndices.data(),activeIndices.size()*sizeof(float),cudaMemcpyHostToDevice));
+    gridUpdate<<<blocksPerActive,THREADS_PER_BLOCK>>>(getGrid(),cellsPerPage,d_active,activeIndices.size());
+    handleCUDAError(cudaDeviceSynchronize());
 }
 
 Grid Engine::getGrid()
@@ -216,7 +245,7 @@ void Engine::initGrid()
                 handleCUError(cuMemSetAccess(virtPtr+(i*granularity)+(j*attributeSize),granularity,&desc,1));
                 handles.push_back(h);
             }
-
+            activeIndices.push_back(i);
         }
     }
     std::cout << "OCCUPIED: " << occupiedCount << std::endl;

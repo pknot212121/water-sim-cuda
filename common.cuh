@@ -32,6 +32,9 @@ constexpr size_t GRID_SIZE = SIZE_X*SIZE_Y*SIZE_Z*CELL_SIZE;
 
 constexpr size_t THREADS_PER_BLOCK = 256;
 
+constexpr float GRAVITY = 9.81f;
+constexpr float DT = 1.0f;
+
 struct __align__(16) Particles
 {
     float* pos[3];

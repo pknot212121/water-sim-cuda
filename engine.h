@@ -32,5 +32,6 @@ class Engine
         size_t gridAlignedSize = GRID_SIZE;
         size_t pageCount;
         size_t blocksPerGrid;
+        std::vector<int> activeIndices;
 
 };
