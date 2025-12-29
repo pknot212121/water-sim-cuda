@@ -27,8 +27,9 @@ constexpr size_t SIZE_Y = 1024;
 constexpr size_t SIZE_Z = 1024;
 
 constexpr size_t CELL_SIZE = 16;
-constexpr size_t SHARED_GRID_SIZE = 512;
-constexpr size_t SHARED_GRID_HEIGHT = 8;
+
+constexpr size_t SHARED_GRID_HEIGHT = 14;
+constexpr size_t SHARED_GRID_SIZE = SHARED_GRID_HEIGHT*SHARED_GRID_HEIGHT*SHARED_GRID_HEIGHT;
 
 constexpr size_t GRID_SIZE = SIZE_X*SIZE_Y*SIZE_Z*CELL_SIZE;
 
@@ -68,6 +69,16 @@ struct __align__(16) Particles
             c10*d.x+c11*d.y+c12*d.z,
             c20*d.x+c21*d.y+c22*d.z);
     }
+
+    __device__ inline unsigned int expandBits(unsigned int v)
+    {
+        v = v & 0x000003FF;
+        v = (v | (v << 16)) & 0x030000FF;
+        v = (v | (v << 8)) & 0x0300F00F;
+        v = (v | (v << 4)) & 0x030C30C3;
+        v = (v | (v << 2)) & 0x09249249;
+        return v;
+    }
 };
 
 struct __align__(16) Grid
@@ -94,6 +105,8 @@ struct __align__(16) Grid
         if (z<0 || z>=SIZE_Z) return false;
         return true;
     }
+
+
 
 };
 
