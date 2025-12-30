@@ -31,10 +31,11 @@ __global__ void occupancyCheckInit(Particles p, size_t cellsPerPage,bool* occupa
 
 }
 
-__global__ void p2GTransfer(Particles p,Grid g,int number)
+__global__ void p2GTransfer(Particles p,Grid g,int number,unsigned int* sortedIndices)
 {
     const int threadIndex = blockIdx.x * blockDim.x + threadIdx.x;
-    const int firstIdx = blockIdx.x * blockDim.x;
+    const int particleIdx = __ldg(&sortedIndices[threadIndex]);
+    const int firstIdx = __ldg(&sortedIndices[blockIdx.x * blockDim.x]);
     if (threadIndex>=number) return;
     const int posX = (int)(p.pos[0][threadIndex]-0.5f);
     const int posY = (int)(p.pos[1][threadIndex]-0.5f);
@@ -72,9 +73,9 @@ __global__ void p2GTransfer(Particles p,Grid g,int number)
                 {
                     size_t cellIdx = g.getGridIdx(posX + i, posY + j, posZ + k);
 
-                    int dx = posX + i - minX;
-                    int dy = posY + j - minY;
-                    int dz = posZ + k - minZ;
+                    int dx = posX + i - minX + 1;
+                    int dy = posY + j - minY + 1;
+                    int dz = posZ + k - minZ + 1;
                     int localIdx = dz * (SHARED_GRID_HEIGHT * SHARED_GRID_HEIGHT) + dy * SHARED_GRID_HEIGHT + dx;
 
 
@@ -93,13 +94,6 @@ __global__ void p2GTransfer(Particles p,Grid g,int number)
                         atomicAdd(&shMomX[localIdx], velX);
                         atomicAdd(&shMomY[localIdx], velY);
                         atomicAdd(&shMomZ[localIdx], velZ);
-                    }
-                    else
-                    {
-                        atomicAdd(&g.mass[cellIdx], weightedMass);
-                        atomicAdd(&g.momentum[0][cellIdx], velX);
-                        atomicAdd(&g.momentum[1][cellIdx], velY);
-                        atomicAdd(&g.momentum[2][cellIdx], velZ);
                     }
                 }
 
@@ -154,19 +148,6 @@ __global__ void setKeys(Particles p,unsigned int* keys,int number)
     unsigned int key = (p.expandBits(posX) << 0) | (p.expandBits(posY) << 1) | (p.expandBits(posZ) << 2);
     if (posX <0 || posX >= SIZE_X-1 || posY < 0 || posY >= SIZE_Y-1 || posZ < 0 || posZ >= SIZE_Z-1) key = 0xFFFFFFFF;
     keys[threadIndex] = key;
-}
-
-__global__ void reorderParticles(Particles p1, Particles p2,int number,unsigned int* values)
-{
-    const int threadIndex = blockIdx.x * blockDim.x + threadIdx.x;
-    if (threadIndex>=number) return;
-    size_t oldIdx = values[threadIndex];
-    for (int i=0;i<3;i++) p2.pos[i][threadIndex] = p1.pos[i][oldIdx];
-    for (int i=0;i<3;i++) p2.vel[i][threadIndex] = p1.vel[i][oldIdx];
-    for (int i=0;i<9;i++) p2.c[i][threadIndex] = p1.c[i][oldIdx];
-    for (int i=0;i<9;i++) p2.f[i][threadIndex] = p1.f[i][oldIdx];
-    p2.v[threadIndex] = p1.v[oldIdx];
-    p2.m[threadIndex] = p1.m[oldIdx];
 }
 
 __global__ void gridTest(Grid g,int targetX, int targetY, int targetZ)
@@ -244,10 +225,20 @@ Engine::~Engine()
 
 void Engine::step()
 {
-    sortParticles();
+    unsigned int *d_keys;
+    unsigned int *d_values;
+    handleCUDAError(cudaMalloc((void**)&d_keys,number*sizeof(unsigned int)));
+    handleCUDAError(cudaMalloc((void**)&d_values,number*sizeof(unsigned int)));
+    setKeys<<<blocksPerGrid,THREADS_PER_BLOCK>>>(getParticles(),d_keys,number);
+    thrust::sequence(thrust::device,d_values,d_values+number);
+    thrust::sort_by_key(thrust::device,d_keys,d_keys+number,d_values);
+    Particles p1 = getParticles();
+    Particles p2 = getParticles_B();
+
+
     dim3 blockDim(THREADS_PER_BLOCK);
     dim3 gridDim(blocksPerGrid);
-    p2GTransfer<<<gridDim,blockDim>>>(getParticles(),getGrid(),number);
+    p2GTransfer<<<gridDim,blockDim>>>(getParticles(),getGrid(),number,d_values);
     handleCUDAError(cudaDeviceSynchronize());
     size_t activePageThreadCount = activeIndices.size() * cellsPerPage;
     size_t blocksPerActive = (activePageThreadCount+THREADS_PER_BLOCK-1)/THREADS_PER_BLOCK;
@@ -257,6 +248,8 @@ void Engine::step()
     handleCUDAError(cudaMemcpy(d_active,activeIndices.data(),activeIndices.size()*sizeof(float),cudaMemcpyHostToDevice));
     gridUpdate<<<blocksPerActive,THREADS_PER_BLOCK>>>(getGrid(),cellsPerPage,d_active,activeIndices.size());
     handleCUDAError(cudaDeviceSynchronize());
+    handleCUDAError(cudaFree(d_keys));
+    handleCUDAError(cudaFree(d_values));
 }
 
 Grid Engine::getGrid()
@@ -343,19 +336,9 @@ void Engine::initGrid()
 
 void Engine::sortParticles()
 {
-    unsigned int *d_keys;
-    unsigned int *d_values;
-    handleCUDAError(cudaMalloc((void**)&d_keys,number*sizeof(unsigned int)));
-    handleCUDAError(cudaMalloc((void**)&d_values,number*sizeof(unsigned int)));
-    setKeys<<<blocksPerGrid,THREADS_PER_BLOCK>>>(getParticles(),d_keys,number);
-    thrust::sequence(thrust::device,d_values,d_values+number);
-    thrust::sort_by_key(thrust::device,d_keys,d_keys+number,d_values);
-    Particles p1 = getParticles();
-    Particles p2 = getParticles_B();
-    reorderParticles<<<blocksPerGrid,THREADS_PER_BLOCK>>>(p1,p2,number,d_values);
-    std::swap(d_buffer,d_buffer_B);
-    handleCUDAError(cudaFree(d_keys));
-    handleCUDAError(cudaFree(d_values));
+
+    //reorderParticles<<<blocksPerGrid,THREADS_PER_BLOCK>>>(p1,p2,number,d_values);
+
 
 }
 

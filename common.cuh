@@ -28,12 +28,12 @@ constexpr size_t SIZE_Z = 1024;
 
 constexpr size_t CELL_SIZE = 16;
 
-constexpr size_t SHARED_GRID_HEIGHT = 14;
+constexpr size_t SHARED_GRID_HEIGHT = 8;
 constexpr size_t SHARED_GRID_SIZE = SHARED_GRID_HEIGHT*SHARED_GRID_HEIGHT*SHARED_GRID_HEIGHT;
 
 constexpr size_t GRID_SIZE = SIZE_X*SIZE_Y*SIZE_Z*CELL_SIZE;
 
-constexpr size_t THREADS_PER_BLOCK = 256;
+constexpr size_t THREADS_PER_BLOCK = 512;
 
 constexpr float GRAVITY = 9.81f;
 constexpr float DT = 1.0f;
