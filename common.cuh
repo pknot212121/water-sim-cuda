@@ -6,6 +6,7 @@
 // #include <c++/13/cstdint>
 #include <cstdint>
 
+/* ---- CONSTS FOR PARTICLES ---- */
 enum ParticleAttr
 {
     POS_X=0, POS_Y, POS_Z,
@@ -22,24 +23,33 @@ enum ParticleAttr
 
     VOL,
     MASS,
-    PARTICLE_SIZE
+    PARTICLE_ATTRIBUTE_COUNT
 };
+constexpr size_t PARTICLE_SIZE = PARTICLE_ATTRIBUTE_COUNT * sizeof(float);
 
-constexpr size_t SIZE_X = 1024;
-constexpr size_t SIZE_Y = 1024;
-constexpr size_t SIZE_Z = 1024;
 
-constexpr size_t CELL_SIZE = 16;
+/* ---- CONSTS FOR GRID ---- */
+constexpr size_t SIZE_X = 128;
+constexpr size_t SIZE_Y = 128;
+constexpr size_t SIZE_Z = 128;
 
-constexpr size_t SHARED_GRID_HEIGHT = 8;
-constexpr size_t SHARED_GRID_SIZE = SHARED_GRID_HEIGHT*SHARED_GRID_HEIGHT*SHARED_GRID_HEIGHT;
+constexpr size_t CELL_ATTRIBUTE_COUNT = 4;
+constexpr size_t CELL_SIZE = CELL_ATTRIBUTE_COUNT*sizeof(float);
 
 constexpr size_t GRID_SIZE = SIZE_X*SIZE_Y*SIZE_Z*CELL_SIZE;
+constexpr size_t GRID_NUMBER = SIZE_X*SIZE_Y*SIZE_Z;
 
-constexpr size_t THREADS_PER_BLOCK = 512;
+
+
+
+/* ---- OTHER CONSTS ---- */
+constexpr size_t THREADS_PER_BLOCK = 256;
 
 constexpr float GRAVITY = 9.81f;
 constexpr float DT = 1.0f;
+
+
+
 
 struct __align__(16) Particles
 {
@@ -89,9 +99,15 @@ struct __align__(16) Grid
     float* mass;
     float* momentum[3];
 
-    __host__ __device__ size_t getGridIdx(int x,int y,int z)
+    __host__ __device__ Grid(float* buffer)
     {
-        return (size_t)z * SIZE_X*SIZE_Y + (size_t)y * SIZE_X + (size_t)x;
+        mass = buffer + GRID_NUMBER * 0;
+        for (int i=0;i<3;i++) momentum[i] = buffer + GRID_NUMBER * (i+1);
+    }
+
+    __host__ __device__ int getGridIdx(int x,int y,int z)
+    {
+        return z * SIZE_X*SIZE_Y + y * SIZE_X + x;
     }
 
     __host__ __device__ float spline(float x)

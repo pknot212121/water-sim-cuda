@@ -15,7 +15,8 @@ add_executable(water
         VoxelPipeline.cpp
         Simulation.h
         Simulation.cpp
-        main.cpp)
+        main.cpp
+        kernels.cu)
 
 # --- Windows Compatibility Fixes ---
 if(MSVC)

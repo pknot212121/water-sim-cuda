@@ -8,9 +8,9 @@ Simulation::Simulation() : engine(createEngine()) // Initialize engine with 1 mi
 Simulation::~Simulation() {}
 
 void Simulation::run() {
-    while (true) {
-        this->engine.step();
-    }
+    // while (true) {
+    //     this->engine.step();
+    // }
 }
 
 Engine Simulation::createEngine() {
