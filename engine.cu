@@ -1,7 +1,8 @@
 #include "engine.h"
 
 __global__ void testKernel(Particles p);
-__global__ void p2GTransfer(Particles p,Grid g,int number,int* sortedIndices,int* cellOffsets);
+__global__ void p2GTransferGather(Particles p,Grid g,int number,int* sortedIndices,int* cellOffsets);
+__global__ void p2GTransferScatter(Particles p,Grid g,int number,int* sortedIndices);
 __global__ void gridUpdate(Grid g,size_t cellsPerPage,int* active, size_t numOfActive);
 __global__ void gridTest(Grid g,int targetX, int targetY, int targetZ);
 __global__ void setKeys(Particles p,int* keys,int number);
@@ -70,13 +71,9 @@ void Engine::sortParticles()
     thrust::sequence(thrust::device, d_values, d_values + number);
     thrust::sort_by_key(thrust::device, d_keys, d_keys + number, d_values);
     std::cout << "AAA" << std::endl;
-    thrust::lower_bound(thrust::device,
-        d_values, d_values+number,
-        thrust::make_counting_iterator(0),
-        thrust::make_counting_iterator((int)GRID_NUMBER + 1),
-        d_cell_offsets
-    );
-    p2GTransfer<<<blocksPerGrid,THREADS_PER_BLOCK>>>(getParticles(),getGrid(),number,d_values,d_cell_offsets);
+    p2GTransferScatter<<<blocksPerGrid,THREADS_PER_BLOCK>>>(getParticles(),getGrid(),number,d_values);
+    std::cout << "BBB" << std::endl;
+    //p2GTransferGather<<<blocksPerGrid,THREADS_PER_BLOCK>>>(getParticles(),getGrid(),number,d_values,d_cell_offsets);
     //sortedTest<<<blocksPerGrid,THREADS_PER_BLOCK>>>(d_cell_offsets);
     cudaFree(d_keys);
 }

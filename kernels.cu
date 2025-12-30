@@ -8,13 +8,110 @@ __global__ void testKernel(Particles p)
     printf("Hello Particle: %f\n",p.pos[0][threadIndex]);
 }
 
-__global__ void p2GTransfer(Particles p,Grid g,int number,int* sortedIndices,int* cellOffsets)
+__global__ void p2GTransferScatter(Particles p,Grid g,int number,int* sortedIndices)
+{
+    const int threadIndex = blockIdx.x * blockDim.x + threadIdx.x;
+    const int particleIdx = __ldg(&sortedIndices[threadIndex]);
+    const int firstIdx = __ldg(&sortedIndices[blockIdx.x * blockDim.x]);
+    const int posX = (int)(p.pos[0][particleIdx]-0.5f);
+    const int posY = (int)(p.pos[1][particleIdx]-0.5f);
+    const int posZ = (int)(p.pos[2][particleIdx]-0.5f);
+    const int minX = (int)(p.pos[0][firstIdx]-0.5f);
+    const int minY = (int)(p.pos[1][firstIdx]-0.5f);
+    const int minZ = (int)(p.pos[2][firstIdx]-0.5f);
+
+    float c00 = p.c[0][threadIndex]; float c01 = p.c[1][threadIndex]; float c02 = p.c[2][threadIndex];
+    float c10 = p.c[3][threadIndex]; float c11 = p.c[4][threadIndex]; float c12 = p.c[5][threadIndex];
+    float c20 = p.c[6][threadIndex]; float c21 = p.c[7][threadIndex]; float c22 = p.c[8][threadIndex];
+
+    const float3 pPos = {p.pos[0][threadIndex],p.pos[1][threadIndex],p.pos[2][threadIndex]};
+    const float3 pVel = {p.vel[0][threadIndex],p.vel[1][threadIndex],p.vel[2][threadIndex]};
+    const float pM = p.m[threadIndex];
+
+    __shared__ float shMass[SHARED_GRID_SIZE];
+    __shared__ float shMomX[SHARED_GRID_SIZE];
+    __shared__ float shMomY[SHARED_GRID_SIZE];
+    __shared__ float shMomZ[SHARED_GRID_SIZE];
+    for (int i=threadIdx.x;i<SHARED_GRID_SIZE;i+=blockDim.x)
+    {
+        shMass[i] = 0;
+        shMomX[i] = 0;
+        shMomY[i] = 0;
+        shMomZ[i] = 0;
+    }
+
+    __syncthreads();
+
+    if (threadIndex<number)
+    {
+        #pragma unroll
+        for (int i=0;i<3;i++)
+        {
+            #pragma unroll
+            for (int j=0;j<3;j++)
+            {
+                #pragma unroll
+                for (int k=0;k<3;k++)
+                {
+                    if (g.isInBounds(posX+i,posY + j, posZ + k))
+                    {
+                        size_t cellIdx = g.getGridIdx(posX + i, posY + j, posZ + k);
+
+                        int dx = posX + i - minX + 1;
+                        int dy = posY + j - minY + 1;
+                        int dz = posZ + k - minZ + 1;
+                        int localIdx = dz * (SHARED_GRID_HEIGHT * SHARED_GRID_HEIGHT) + dy * SHARED_GRID_HEIGHT + dx;
+
+
+                        float3 d = {pPos.x - (posX + i), pPos.y - (posY + j), pPos.z - (posZ + k)};
+                        float weight = g.spline(d.x) * g.spline(d.y) * g.spline(d.z);
+                        float weightedMass = pM * weight;
+                        float3 Cxd = p.multiplyCxd(c00, c01, c02, c10, c11, c12, c20, c21, c22, d);
+                        float velX = weightedMass * pVel.x + Cxd.x;
+                        float velY = weightedMass * pVel.y + Cxd.y;
+                        float velZ = weightedMass * pVel.z + Cxd.z;
+
+                        if (dx >= 0 && dx < SHARED_GRID_HEIGHT && dy >= 0 && dy < SHARED_GRID_HEIGHT && dz >= 0 && dz <SHARED_GRID_HEIGHT)
+                        {
+                            atomicAdd(&shMass[localIdx], weightedMass);
+                            atomicAdd(&shMomX[localIdx], velX);
+                            atomicAdd(&shMomY[localIdx], velY);
+                            atomicAdd(&shMomZ[localIdx], velZ);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+
+    __syncthreads();
+    for (int i=threadIdx.x;i<SHARED_GRID_SIZE;i+=blockDim.x)
+    {
+        int gx = minX + (i % SHARED_GRID_HEIGHT);
+        int gy = minY + (i / SHARED_GRID_HEIGHT) % SHARED_GRID_HEIGHT;
+        int gz = minZ + i / (SHARED_GRID_HEIGHT * SHARED_GRID_HEIGHT);
+        size_t gIdx = g.getGridIdx(gx, gy, gz);
+        if (shMass[i]>1e-9)
+        {
+            atomicAdd(&g.mass[gIdx],shMass[i]);
+            atomicAdd(&g.momentum[0][gIdx],shMomX[i]);
+            atomicAdd(&g.momentum[1][gIdx],shMomY[i]);
+            atomicAdd(&g.momentum[2][gIdx],shMomZ[i]);
+        }
+
+    }
+
+
+}
+
+__global__ void p2GTransferGather(Particles p,Grid g,int number,int* sortedIndices,int* cellOffsets)
 {
     int threadIndex = blockIdx.x * blockDim.x + threadIdx.x;
     if (threadIndex>= GRID_NUMBER) return;
 
     int x = threadIndex % SIZE_X;
-    int y = (threadIndex / SIZE_X) & SIZE_Y;
+    int y = (threadIndex / SIZE_X) % SIZE_Y;
     int z = threadIndex / (SIZE_X*SIZE_Y);
 
     float totalMass = 0.0f;
