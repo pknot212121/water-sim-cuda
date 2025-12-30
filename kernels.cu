@@ -20,13 +20,13 @@ __global__ void p2GTransferScatter(Particles p,Grid g,int number,int* sortedIndi
     const int minY = (int)(p.pos[1][firstIdx]-0.5f);
     const int minZ = (int)(p.pos[2][firstIdx]-0.5f);
 
-    float c00 = p.c[0][threadIndex]; float c01 = p.c[1][threadIndex]; float c02 = p.c[2][threadIndex];
-    float c10 = p.c[3][threadIndex]; float c11 = p.c[4][threadIndex]; float c12 = p.c[5][threadIndex];
-    float c20 = p.c[6][threadIndex]; float c21 = p.c[7][threadIndex]; float c22 = p.c[8][threadIndex];
+    float c00 = p.c[0][particleIdx]; float c01 = p.c[1][particleIdx]; float c02 = p.c[2][particleIdx];
+    float c10 = p.c[3][particleIdx]; float c11 = p.c[4][particleIdx]; float c12 = p.c[5][particleIdx];
+    float c20 = p.c[6][particleIdx]; float c21 = p.c[7][particleIdx]; float c22 = p.c[8][particleIdx];
 
-    const float3 pPos = {p.pos[0][threadIndex],p.pos[1][threadIndex],p.pos[2][threadIndex]};
-    const float3 pVel = {p.vel[0][threadIndex],p.vel[1][threadIndex],p.vel[2][threadIndex]};
-    const float pM = p.m[threadIndex];
+    const float3 pPos = {p.pos[0][particleIdx],p.pos[1][particleIdx],p.pos[2][particleIdx]};
+    const float3 pVel = {p.vel[0][particleIdx],p.vel[1][particleIdx],p.vel[2][particleIdx]};
+    const float pM = p.m[particleIdx];
 
     __shared__ float shMass[SHARED_GRID_SIZE];
     __shared__ float shMomX[SHARED_GRID_SIZE];
@@ -78,6 +78,13 @@ __global__ void p2GTransferScatter(Particles p,Grid g,int number,int* sortedIndi
                             atomicAdd(&shMomY[localIdx], velY);
                             atomicAdd(&shMomZ[localIdx], velZ);
                         }
+                        else
+                        {
+                            atomicAdd(&g.mass[cellIdx], weightedMass);
+                            atomicAdd(&g.momentum[0][cellIdx], velX);
+                            atomicAdd(&g.momentum[1][cellIdx], velY);
+                            atomicAdd(&g.momentum[2][cellIdx], velZ);
+                        }
                     }
                 }
             }
@@ -88,9 +95,9 @@ __global__ void p2GTransferScatter(Particles p,Grid g,int number,int* sortedIndi
     __syncthreads();
     for (int i=threadIdx.x;i<SHARED_GRID_SIZE;i+=blockDim.x)
     {
-        int gx = minX + (i % SHARED_GRID_HEIGHT);
-        int gy = minY + (i / SHARED_GRID_HEIGHT) % SHARED_GRID_HEIGHT;
-        int gz = minZ + i / (SHARED_GRID_HEIGHT * SHARED_GRID_HEIGHT);
+        int gx = minX + (i % SHARED_GRID_HEIGHT)-1;
+        int gy = minY + (i / SHARED_GRID_HEIGHT) % SHARED_GRID_HEIGHT-1;
+        int gz = minZ + i / (SHARED_GRID_HEIGHT * SHARED_GRID_HEIGHT)-1;
         size_t gIdx = g.getGridIdx(gx, gy, gz);
         if (shMass[i]>1e-9)
         {
@@ -199,13 +206,30 @@ __global__ void sortedTest(int *sorted)
     if (sorted[threadIndex]!=0) printf("Hello Sorted: %u\n",sorted[threadIndex]);
 }
 
-__global__ void setKeys(Particles p,int* keys,int number)
+__device__ unsigned int expandBits(unsigned int v)
+{
+    v = (v * 0x00010001u) & 0xFF0000FFu;
+    v = (v * 0x00000101u) & 0x0F00F00Fu;
+    v = (v * 0x00000011u) & 0xC30C30C3u;
+    v = (v * 0x00000005u) & 0x49249249u;
+    return v;
+}
+
+
+__device__ unsigned int calculateMorton(unsigned int x, unsigned int y, unsigned int z)
+{
+    return (expandBits(z) << 2) | (expandBits(y) << 1) | expandBits(x);
+}
+
+
+__global__ void setKeys(Particles p, int* keys, int number)
 {
     const int threadIndex = blockIdx.x * blockDim.x + threadIdx.x;
-    if (threadIndex>=number) return;
-    const int posX = (int)(p.pos[0][threadIndex]);
-    const int posY = (int)(p.pos[1][threadIndex]);
-    const int posZ = (int)(p.pos[2][threadIndex]);
-    unsigned int key = posZ * SIZE_X * SIZE_Y + posY * SIZE_X + posX;
-    keys[threadIndex] = key;
+    if (threadIndex >= number) return;
+
+    const unsigned int posX = (unsigned int)max(0.0f, p.pos[0][threadIndex]);
+    const unsigned int posY = (unsigned int)max(0.0f, p.pos[1][threadIndex]);
+    const unsigned int posZ = (unsigned int)max(0.0f, p.pos[2][threadIndex]);
+
+    keys[threadIndex] = calculateMorton(posX, posY, posZ);
 }
