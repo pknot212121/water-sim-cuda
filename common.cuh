@@ -1,7 +1,10 @@
+#pragma once
+
 #include <vector_types.h>
 #include <cuda_bf16.h>
 #include <cuda_runtime_api.h>
-#include <c++/13/cstdint>
+// #include <c++/13/cstdint>
+#include <cstdint>
 
 enum ParticleAttr
 {

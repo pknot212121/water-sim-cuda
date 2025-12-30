@@ -15,6 +15,7 @@ class Engine
 {
     public:
         Engine(int n);
+        Engine(int n, float *h_buffer);
         ~Engine();
         void step();
         inline Particles getParticles(){ return Particles(d_buffer,number); }
@@ -42,5 +43,4 @@ class Engine
         size_t pageCount;
         size_t blocksPerGrid;
         std::vector<int> activeIndices;
-
 };

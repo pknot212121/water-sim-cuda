@@ -215,6 +215,20 @@ Engine::Engine(int n)
     getchar();
 }
 
+Engine::Engine(int n, float *h_buffer)
+{
+    number = n;
+    this->h_buffer = h_buffer;
+    gen = std::mt19937(std::random_device{}());
+    blocksPerGrid = (number+THREADS_PER_BLOCK-1) / THREADS_PER_BLOCK;
+    initCuda();
+    initParticles();
+    sortParticles();
+    initGrid();
+    step();
+    getchar();
+}
+
 Engine::~Engine()
 {
     delete[] h_buffer;
@@ -263,18 +277,18 @@ Grid Engine::getGrid()
 
 void Engine::initParticles()
 {
-    std::uniform_real_distribution<float> distX(0, SIZE_X);
-    std::uniform_real_distribution<float> distY(0, SIZE_Y);
-    std::uniform_real_distribution<float> distZ(0, 10);
-    h_buffer = new float[number * PARTICLE_SIZE];
-    for (int i = 0; i < number; i++)
-    {
-        h_buffer[i] = distX(gen);
-        h_buffer[i + number] = distY(gen);
-        h_buffer[i + number * 2] = distZ(gen);
-        h_buffer[i + number * (PARTICLE_SIZE - 2)] = 10;
-        h_buffer[i + number * (PARTICLE_SIZE - 1)] = 10;
-    }
+    // std::uniform_real_distribution<float> distX(0, SIZE_X);
+    // std::uniform_real_distribution<float> distY(0, SIZE_Y);
+    // std::uniform_real_distribution<float> distZ(0, 10);
+    // h_buffer = new float[number * PARTICLE_SIZE];
+    // for (int i = 0; i < number; i++)
+    // {
+    //     h_buffer[i] = distX(gen);
+    //     h_buffer[i + number] = distY(gen);
+    //     h_buffer[i + number * 2] = distZ(gen);
+    //     h_buffer[i + number * (PARTICLE_SIZE - 2)] = 10;
+    //     h_buffer[i + number * (PARTICLE_SIZE - 1)] = 10;
+    // }
     handleCUDAError(cudaMalloc((void**)&d_buffer, number * PARTICLE_SIZE * sizeof(float)));
     handleCUDAError(cudaMalloc((void**)&d_buffer_B,number * PARTICLE_SIZE * sizeof(float)));
     handleCUDAError(cudaMemcpy(d_buffer, h_buffer, number * PARTICLE_SIZE * sizeof(float), cudaMemcpyHostToDevice));
