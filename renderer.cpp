@@ -40,8 +40,7 @@ void Renderer::draw()
     else
     {
         glfwPollEvents();
-
-        cudaGraphicsMapResources(1,&cudaResource,0);
+        
 
         glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
