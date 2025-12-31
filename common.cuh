@@ -30,8 +30,8 @@ constexpr size_t PARTICLE_SIZE = PARTICLE_ATTRIBUTE_COUNT * sizeof(float);
 
 /* ---- CONSTS FOR GRID ---- */
 constexpr size_t SIZE_X = 128;
-constexpr size_t SIZE_Y = 128;
-constexpr size_t SIZE_Z = 128;
+constexpr size_t SIZE_Y = 512;
+constexpr size_t SIZE_Z = 512;
 
 constexpr size_t CELL_ATTRIBUTE_COUNT = 4;
 constexpr size_t CELL_SIZE = CELL_ATTRIBUTE_COUNT*sizeof(float);

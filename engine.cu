@@ -32,7 +32,6 @@ Engine::Engine(int n, float *h_buffer)
     blocksPerGrid = (number+THREADS_PER_BLOCK-1) / THREADS_PER_BLOCK;
     initParticles();
     initGrid();
-    step();
 }
 
 Engine::~Engine()
