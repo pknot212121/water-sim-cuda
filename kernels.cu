@@ -133,18 +133,28 @@ __global__ void g2PTransfer(Particles p, Grid g,int number,int *sortedIndices)
 
     float3 totalVel = {0.0f,0.0f,0.0f};
     float totalC[9] = {0,0,0,0,0,0,0,0,0};
+    float wx[3], wy[3], wz[3];
+    #pragma unroll
+    for(int i=0; i<3; i++) wx[i] = g.spline(pPos.x - (posX + i));
+    #pragma unroll
+    for(int i=0; i<3; i++) wy[i] = g.spline(pPos.y - (posY + i));
+    #pragma unroll
+    for(int i=0; i<3; i++) wz[i] = g.spline(pPos.z - (posZ + i));
 
+    #pragma unroll
     for (int i=0;i<3;i++)
     {
+        #pragma unroll
         for (int j=0;j<3;j++)
         {
+            #pragma unroll
             for (int k=0;k<3;k++)
             {
                 if (g.isInBounds(posX+i,posY + j, posZ + k))
                 {
                     size_t cellIdx = g.getGridIdx(posX + i, posY + j, posZ + k);
                     float3 d = {pPos.x - (float)(posX + i), pPos.y - (float)(posY + j), pPos.z - (float)(posZ + k)};
-                    float weight = g.spline(d.x) * g.spline(d.y) * g.spline(d.z);
+                    float weight = wx[i]*wy[j]*wz[k];
                     totalVel.x += weight * g.momentum[0][cellIdx];
                     totalVel.y += weight * g.momentum[1][cellIdx];
                     totalVel.z += weight * g.momentum[2][cellIdx];
