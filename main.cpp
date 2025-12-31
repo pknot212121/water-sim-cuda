@@ -2,10 +2,12 @@
 #include "common.cuh"
 #include "ObjLoader.h"
 #include "VoxelEngine.h"
+
 #include <iostream>
 
 #include "VoxelPipeline.h"
 #include "Simulation.h"
+
 
 int main()
 {

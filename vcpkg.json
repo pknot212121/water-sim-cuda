@@ -14,5 +14,14 @@
   }, {
     "name" : "vcpkg-cmake",
     "version>=" : "2024-04-23"
-  } ]
+  },
+  {
+    "name" : "glfw3"
+  },
+  {
+    "name" : "glad"
+  },
+  {
+    "name" : "glm"
+  }]
 }

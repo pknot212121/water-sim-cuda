@@ -8,8 +8,9 @@ Simulation::Simulation() : engine(createEngine()) // Initialize engine with 1 mi
 Simulation::~Simulation() {}
 
 void Simulation::run() {
-    while (true) {
+    while (!renderer.isWindowClosed()) {
         this->engine.step();
+        this->renderer.draw();
     }
 }
 

@@ -16,7 +16,10 @@ add_executable(water
         Simulation.h
         Simulation.cpp
         main.cpp
-        kernels.cu)
+        kernels.cu
+        renderer.cpp
+        renderer.h
+        renderer.h)
 
 # --- Windows Compatibility Fixes ---
 if(MSVC)
@@ -32,6 +35,9 @@ endif()
 
 find_package(tinyobjloader CONFIG REQUIRED)
 find_package(nlohmann_json CONFIG REQUIRED)
+find_package(glfw3 CONFIG REQUIRED)
+find_package(glad CONFIG REQUIRED)
+find_package(glm CONFIG REQUIRED)
 
 target_link_libraries(water
     PRIVATE
@@ -39,6 +45,9 @@ target_link_libraries(water
     CUDA::cudart
     tinyobjloader::tinyobjloader
     nlohmann_json::nlohmann_json
+    glfw
+    glad::glad
+    glm::glm
 )
 
 # Copy test.obj to build directory

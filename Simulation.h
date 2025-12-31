@@ -4,6 +4,7 @@
 #include "VoxelPipeline.h"
 #include "ObjLoader.h"
 #include "engine.h"
+#include "renderer.h"
 
 class Simulation {
     public:
@@ -15,5 +16,6 @@ class Simulation {
     VoxelEngine voxelEngine;
     VoxelPipeline voxelPipeline;
     Engine engine;
+    Renderer renderer;
     Engine createEngine();
 };
