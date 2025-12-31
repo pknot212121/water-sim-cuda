@@ -44,6 +44,14 @@ __global__ void p2GTransferScatter(Particles p,Grid g,int number,int* sortedIndi
 
     if (threadIndex<number)
     {
+        float wx[3], wy[3], wz[3];
+        #pragma unroll
+        for(int i=0; i<3; i++) wx[i] = g.spline(pPos.x - (posX + i));
+        #pragma unroll
+        for(int i=0; i<3; i++) wy[i] = g.spline(pPos.y - (posY + i));
+        #pragma unroll
+        for(int i=0; i<3; i++) wz[i] = g.spline(pPos.z - (posZ + i));
+
         #pragma unroll
         for (int i=0;i<3;i++)
         {
@@ -64,7 +72,7 @@ __global__ void p2GTransferScatter(Particles p,Grid g,int number,int* sortedIndi
 
 
                         float3 d = {pPos.x - (posX + i), pPos.y - (posY + j), pPos.z - (posZ + k)};
-                        float weight = g.spline(d.x) * g.spline(d.y) * g.spline(d.z);
+                        float weight = wx[i] * wy[j] * wz[k];
                         float weightedMass = pM * weight;
                         float3 Cxd = p.multiplyCxd(c00, c01, c02, c10, c11, c12, c20, c21, c22, d);
                         float velX = weightedMass * pVel.x + Cxd.x;
@@ -173,13 +181,14 @@ __global__ void p2GTransferGather(Particles p,Grid g,int number,int* sortedIndic
     g.momentum[2][threadIndex] = totalMomentum.z;
 }
 
-__global__ void gridUpdate(Grid g,size_t cellsPerPage,int* active, size_t numOfActive)
+__global__ void g2PTransfer(Particles p, Grid g,int number,int *sortedIndices)
 {
-    const int globalThreadIndex = blockIdx.x * blockDim.x + threadIdx.x;
-    const int pageIdx = globalThreadIndex / cellsPerPage;
-    if (pageIdx >= numOfActive) return;
-    const int localIdx = globalThreadIndex % cellsPerPage;
-    const int threadIndex = active[pageIdx] * cellsPerPage + localIdx;
+    
+}
+
+__global__ void gridUpdate(Grid g)
+{
+    const int threadIndex = blockIdx.x * blockDim.x + threadIdx.x;
     float mass = g.mass[threadIndex];
     float3 momentum = {g.momentum[0][threadIndex],g.momentum[1][threadIndex],g.momentum[2][threadIndex]};
     float3 velocity = {0.0f,0.0f,0.0f};

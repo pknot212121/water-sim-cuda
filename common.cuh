@@ -48,7 +48,7 @@ constexpr size_t THREADS_PER_BLOCK = 256;
 constexpr float GRAVITY = 9.81f;
 constexpr float DT = 1.0f;
 
-constexpr int SHARED_GRID_HEIGHT = 8;
+constexpr int SHARED_GRID_HEIGHT = 11;
 constexpr int SHARED_GRID_SIZE = SHARED_GRID_HEIGHT*SHARED_GRID_HEIGHT*SHARED_GRID_HEIGHT;
 
 

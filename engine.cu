@@ -3,7 +3,7 @@
 __global__ void testKernel(Particles p);
 __global__ void p2GTransferGather(Particles p,Grid g,int number,int* sortedIndices,int* cellOffsets);
 __global__ void p2GTransferScatter(Particles p,Grid g,int number,int* sortedIndices);
-__global__ void gridUpdate(Grid g,size_t cellsPerPage,int* active, size_t numOfActive);
+__global__ void gridUpdate(Grid g);
 __global__ void gridTest(Grid g,int targetX, int targetY, int targetZ);
 __global__ void setKeys(Particles p,int* keys,int number);
 __global__ void sortedTest(int *sorted);
@@ -46,6 +46,11 @@ Engine::~Engine()
 void Engine::step()
 {
     sortParticles();
+    p2GTransferScatter<<<blocksPerGrid,THREADS_PER_BLOCK>>>(getParticles(),getGrid(),number,d_values);
+    handleCUDAError(cudaDeviceSynchronize());
+    gridUpdate<<<blocksPerGrid,THREADS_PER_BLOCK>>>(getGrid());
+    handleCUDAError(cudaDeviceSynchronize());
+
 }
 
 void Engine::initParticles()
@@ -68,13 +73,10 @@ void Engine::sortParticles()
     int *d_keys;
     handleCUDAError(cudaMalloc((void**)&d_keys,number*sizeof(int)));
     setKeys<<<blocksPerGrid,THREADS_PER_BLOCK>>>(getParticles(), d_keys, number);
+    handleCUDAError(cudaDeviceSynchronize());
     thrust::sequence(thrust::device, d_values, d_values + number);
     thrust::sort_by_key(thrust::device, d_keys, d_keys + number, d_values);
-    std::cout << "AAA" << std::endl;
-    p2GTransferScatter<<<blocksPerGrid,THREADS_PER_BLOCK>>>(getParticles(),getGrid(),number,d_values);
-    std::cout << "BBB" << std::endl;
-    //p2GTransferGather<<<blocksPerGrid,THREADS_PER_BLOCK>>>(getParticles(),getGrid(),number,d_values,d_cell_offsets);
-    //sortedTest<<<blocksPerGrid,THREADS_PER_BLOCK>>>(d_cell_offsets);
+
     cudaFree(d_keys);
 }
 
