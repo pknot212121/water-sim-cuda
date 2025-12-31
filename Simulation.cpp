@@ -1,7 +1,7 @@
 #include "Simulation.h"
 #include "common.cuh"
 
-Simulation::Simulation() : engine(createEngine()) // Initialize engine with 1 million particles
+Simulation::Simulation() : engine(createEngine()), renderer(engine.getNumber()) // Initialize engine with 1 million particles
 {
 }
 

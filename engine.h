@@ -22,6 +22,8 @@ class Engine
         void initParticles();
         void sortParticles();
         void initGrid();
+        inline int getNumber(){return number;}
+        inline float* getBuffer(){return d_buffer;}
     private:
         float *h_buffer;
         float *d_buffer;
