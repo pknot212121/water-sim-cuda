@@ -120,6 +120,62 @@ __global__ void p2GTransferScatter(Particles p,Grid g,int number,int* sortedIndi
 
 }
 
+__global__ void g2PTransfer(Particles p, Grid g,int number,int *sortedIndices)
+{
+    const int threadIndex = blockIdx.x * blockDim.x + threadIdx.x;
+    if (threadIndex>=number) return;
+    const int particleIdx = __ldg(&sortedIndices[threadIndex]);
+    const int firstIdx = __ldg(&sortedIndices[blockIdx.x * blockDim.x]);
+    const int posX = (int)(p.pos[0][particleIdx]-0.5f);
+    const int posY = (int)(p.pos[1][particleIdx]-0.5f);
+    const int posZ = (int)(p.pos[2][particleIdx]-0.5f);
+    const float3 pPos = {p.pos[0][particleIdx],p.pos[1][particleIdx],p.pos[2][particleIdx]};
+
+    float3 totalVel = {0.0f,0.0f,0.0f};
+    float totalC[9] = {0,0,0,0,0,0,0,0,0};
+
+    for (int i=0;i<3;i++)
+    {
+        for (int j=0;j<3;j++)
+        {
+            for (int k=0;k<3;k++)
+            {
+                if (g.isInBounds(posX+i,posY + j, posZ + k))
+                {
+                    size_t cellIdx = g.getGridIdx(posX + i, posY + j, posZ + k);
+                    float3 d = {pPos.x - (float)(posX + i), pPos.y - (float)(posY + j), pPos.z - (float)(posZ + k)};
+                    float weight = g.spline(d.x) * g.spline(d.y) * g.spline(d.z);
+                    totalVel.x += weight * g.momentum[0][cellIdx];
+                    totalVel.y += weight * g.momentum[1][cellIdx];
+                    totalVel.z += weight * g.momentum[2][cellIdx];
+
+                    float3 dist = {-d.x,-d.y,-d.z};
+                    float term = 4.0f * weight;
+                    totalC[0] += term * g.momentum[0][cellIdx] * dist.x;
+                    totalC[1] += term * g.momentum[0][cellIdx] * dist.y;
+                    totalC[2] += term * g.momentum[0][cellIdx] * dist.z;
+                    totalC[3] += term * g.momentum[1][cellIdx] * dist.x;
+                    totalC[4] += term * g.momentum[1][cellIdx] * dist.y;
+                    totalC[5] += term * g.momentum[1][cellIdx] * dist.z;
+                    totalC[6] += term * g.momentum[2][cellIdx] * dist.x;
+                    totalC[7] += term * g.momentum[2][cellIdx] * dist.y;
+                    totalC[8] += term * g.momentum[2][cellIdx] * dist.z;
+                }
+            }
+        }
+    }
+    p.vel[0][particleIdx] = totalVel.x;
+    p.vel[1][particleIdx] = totalVel.y;
+    p.vel[2][particleIdx] = totalVel.z;
+
+    p.pos[0][particleIdx] += totalVel.x * DT;
+    p.pos[1][particleIdx] += totalVel.y * DT;
+    p.pos[2][particleIdx] += totalVel.z * DT;
+    for (int i=0;i<9;i++) p.c[i][particleIdx] = totalC[i];
+}
+
+
+
 __global__ void p2GTransferGather(Particles p,Grid g,int number,int* sortedIndices,int* cellOffsets)
 {
     int threadIndex = blockIdx.x * blockDim.x + threadIdx.x;
@@ -181,10 +237,7 @@ __global__ void p2GTransferGather(Particles p,Grid g,int number,int* sortedIndic
     g.momentum[2][threadIndex] = totalMomentum.z;
 }
 
-__global__ void g2PTransfer(Particles p, Grid g,int number,int *sortedIndices)
-{
-    
-}
+
 
 __global__ void gridUpdate(Grid g)
 {

@@ -2,6 +2,7 @@
 
 __global__ void testKernel(Particles p);
 __global__ void p2GTransferGather(Particles p,Grid g,int number,int* sortedIndices,int* cellOffsets);
+__global__ void g2PTransfer(Particles p, Grid g,int number,int *sortedIndices);
 __global__ void p2GTransferScatter(Particles p,Grid g,int number,int* sortedIndices);
 __global__ void gridUpdate(Grid g);
 __global__ void gridTest(Grid g,int targetX, int targetY, int targetZ);
@@ -50,7 +51,8 @@ void Engine::step()
     handleCUDAError(cudaDeviceSynchronize());
     gridUpdate<<<blocksPerGrid,THREADS_PER_BLOCK>>>(getGrid());
     handleCUDAError(cudaDeviceSynchronize());
-
+    g2PTransfer<<<blocksPerGrid,THREADS_PER_BLOCK>>>(getParticles(),getGrid(),number,d_values);
+    handleCUDAError(cudaDeviceSynchronize());
 }
 
 void Engine::initParticles()
