@@ -15,6 +15,26 @@ class Engine
 {
     public:
         Engine(int n, float *h_buffer);
+        Engine(const Engine&) = delete;
+        Engine& operator=(const Engine&) = delete;
+
+        Engine(Engine&& other) noexcept {
+            this->number = other.number;
+            this->h_buffer = other.h_buffer;
+            this->d_buffer = other.d_buffer;
+            this->d_grid_buffer = other.d_grid_buffer;
+            this->d_values = other.d_values;
+            this->d_cell_offsets = other.d_cell_offsets;
+            this->positionsToOpenGL = other.positionsToOpenGL;
+            this->blocksPerGrid = other.blocksPerGrid;
+
+            other.h_buffer = nullptr;
+            other.d_buffer = nullptr;
+            other.d_grid_buffer = nullptr;
+            other.d_values = nullptr;
+            other.d_cell_offsets = nullptr;
+            other.positionsToOpenGL = nullptr;
+        }
         ~Engine();
         void step();
         inline Particles getParticles(){ return Particles(d_buffer,number); }

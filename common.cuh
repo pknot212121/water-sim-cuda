@@ -48,12 +48,11 @@ constexpr size_t GRID_NUMBER = SIZE_X*SIZE_Y*SIZE_Z;
 constexpr size_t THREADS_PER_BLOCK = 256;
 
 constexpr float GRAVITY = 9.81f;
-constexpr float DT = 0.01f;
-
+constexpr float DT = 0.03f;
+constexpr float COMPRESSION = 100.0f;
 constexpr int SHARED_GRID_HEIGHT = 11;
 constexpr int SHARED_GRID_SIZE = SHARED_GRID_HEIGHT*SHARED_GRID_HEIGHT*SHARED_GRID_HEIGHT;
 constexpr size_t GRID_BLOCKS = (GRID_NUMBER + THREADS_PER_BLOCK-1) / THREADS_PER_BLOCK;
-
 
 
 struct __align__(16) Particles

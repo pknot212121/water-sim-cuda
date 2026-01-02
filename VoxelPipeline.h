@@ -10,7 +10,7 @@ public:
 
     // Process voxel data and return float buffer
     // You can modify the signature if needed (e.g., add size_t* outSize parameter)
-    std::vector<float> process(const VoxelData& voxelData);
+    std::vector<float> process(const VoxelData& voxelData,float resolution);
 
 private:
     // Add your private helper functions here if needed

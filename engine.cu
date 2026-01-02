@@ -1,7 +1,6 @@
 #include "engine.h"
 
-__global__ void testKernel(Particles p);
-__global__ void p2GTransferGather(Particles p,Grid g,int number,int* sortedIndices,int* cellOffsets);
+__global__ void testKernel(Particles p,int number);
 __global__ void g2PTransfer(Particles p, Grid g,int number,int *sortedIndices);
 __global__ void p2GTransferScatter(Particles p,Grid g,int number,int* sortedIndices);
 __global__ void gridUpdate(Grid g);
@@ -10,6 +9,8 @@ __global__ void setKeys(Particles p,int* keys,int number);
 __global__ void sortedTest(int *sorted);
 __global__ void changeFormat(Particles p,float3 *buf,int number);
 __global__ void emptyGrid(Grid g);
+__global__ void initFMatrices(Particles p,int number);
+__global__ void checkForNANs(Particles p,int number);
 
 void handleCUDAError(cudaError_t err)
 {
@@ -33,6 +34,7 @@ Engine::Engine(int n, float *h_buffer)
     this->h_buffer = h_buffer;
     blocksPerGrid = (number+THREADS_PER_BLOCK-1) / THREADS_PER_BLOCK;
     initParticles();
+
     initGrid();
 }
 
@@ -47,7 +49,10 @@ Engine::~Engine()
 
 void Engine::step()
 {
+
     sortParticles();
+    // testKernel<<<blocksPerGrid,THREADS_PER_BLOCK>>>(getParticles(),number);
+    // handleCUDAError(cudaDeviceSynchronize());
     emptyGrid<<<GRID_BLOCKS,THREADS_PER_BLOCK>>>(getGrid());
     handleCUDAError(cudaDeviceSynchronize());
     p2GTransferScatter<<<blocksPerGrid,THREADS_PER_BLOCK>>>(getParticles(),getGrid(),number,d_values);
@@ -67,6 +72,10 @@ void Engine::initParticles()
     handleCUDAError(cudaMalloc((void**)&d_cell_offsets,GRID_NUMBER*sizeof(int)));
     handleCUDAError(cudaMalloc((void**)&positionsToOpenGL,number*sizeof(float3)));
     handleCUDAError(cudaMemcpy(d_buffer, h_buffer, number * PARTICLE_SIZE, cudaMemcpyHostToDevice));
+
+    initFMatrices<<<blocksPerGrid,THREADS_PER_BLOCK>>>(getParticles(),number);
+    handleCUDAError(cudaDeviceSynchronize());
+
 }
 
 
