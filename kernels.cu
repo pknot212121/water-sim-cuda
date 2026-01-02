@@ -10,6 +10,58 @@ __global__ void testKernel(Particles p,int number)
     if (p.v[threadIndex]<0.00001f) printf("Hello volume: %f\n",p.v[threadIndex]);
 }
 
+__device__ void multiply3x3(float *A,float *B,float *C)
+{
+    C[0]=A[0]*B[0] + A[1]*B[3] + A[2]*B[6];
+    C[1]=A[0]*B[1] + A[1]*B[4] + A[2]*B[7];
+    C[2]=A[0]*B[2] + A[1]*B[5] + A[2]*B[8];
+
+    C[3]=A[3]*B[0] + A[4]*B[3] + A[5]*B[6];
+    C[4]=A[3]*B[1] + A[4]*B[4] + A[5]*B[7];
+    C[5]=A[3]*B[2] + A[4]*B[5] + A[5]*B[8];
+
+    C[6]=A[6]*B[0] + A[7]*B[3] + A[8]*B[6];
+    C[7]=A[6]*B[1] + A[7]*B[4] + A[8]*B[7];
+    C[8]=A[6]*B[2] + A[7]*B[5] + A[8]*B[8];
+}
+
+__device__ void add3x3(float* A,float* B,float *C)
+{
+    for (int i=0;i<9;i++) C[i]=A[i]+B[i];
+}
+
+__device__ void multiply3x3ByConst(float a,float* B,float* C)
+{
+    for (int i=0;i<9;i++) C[i]=a*B[i];
+}
+
+__device__ __forceinline__ float det3x3(float *A)
+{
+    return A[0]*(A[4]*A[8]-A[5]*A[7]) - A[1]*(A[3]*A[8]-A[5]*A[6]) + A[2]*(A[3]*A[7] - A[4]*A[6]);
+}
+
+__device__ void calculateNewF(float *C,float *oldF,float *newF)
+{
+    float I[9] = {1.0f,0.0f,0.0f,0.0f,1.0f,0.0f,0.0f,0.0f,1.0f};
+    multiply3x3ByConst(DT,C,C);
+    add3x3(I,C,C);
+    multiply3x3(C,oldF,newF);
+}
+
+__device__ void forceC(float vP,float P,float mass,float* fC)
+{
+    float I[9] = {1.0f,0.0f,0.0f,0.0f,1.0f,0.0f,0.0f,0.0f,1.0f};
+    if (mass>0.0001)
+    {
+        multiply3x3ByConst(4.0f*DT*vP*P/mass,I,fC);
+    }
+    else
+    {
+        multiply3x3ByConst(4.0f*DT*vP*P,I,fC);
+    }
+
+}
+
 __global__ void p2GTransferScatter(Particles p,Grid g,int number,int* sortedIndices)
 {
     const int threadIndex = blockIdx.x * blockDim.x + threadIdx.x;
@@ -25,13 +77,23 @@ __global__ void p2GTransferScatter(Particles p,Grid g,int number,int* sortedIndi
     const int minY = (int)(p.pos[1][firstIdx]-0.5f);
     const int minZ = (int)(p.pos[2][firstIdx]-0.5f);
 
-    float c00 = p.c[0][particleIdx]; float c01 = p.c[1][particleIdx]; float c02 = p.c[2][particleIdx];
-    float c10 = p.c[3][particleIdx]; float c11 = p.c[4][particleIdx]; float c12 = p.c[5][particleIdx];
-    float c20 = p.c[6][particleIdx]; float c21 = p.c[7][particleIdx]; float c22 = p.c[8][particleIdx];
+    float oldC[9];
+    for (int i=0;i<9;i++) oldC[i]=p.c[i][particleIdx];
 
     const float3 pPos = {p.pos[0][particleIdx],p.pos[1][particleIdx],p.pos[2][particleIdx]};
     const float3 pVel = {p.vel[0][particleIdx],p.vel[1][particleIdx],p.vel[2][particleIdx]};
     const float pM = p.m[particleIdx];
+
+    float oldF[9];
+    #pragma unroll
+    for(int i=0; i<9; i++) oldF[i] = p.f[i][particleIdx];
+    float J = det3x3(oldF);
+    J = fmaxf(0.1f, fminf(J, 100.0f));
+    float pressure = COMPRESSION * (J - 1.0f);
+    float volume = p.v[particleIdx] * J;
+    float stressTerm[9] = {1.0f,0.0f,0.0f,0.0f,1.0f,0.0f,0.0f,0.0f,1.0f};
+    multiply3x3ByConst(4.0f * DT * volume * pressure / pM,stressTerm,stressTerm);
+    add3x3(oldC,stressTerm,oldC);
 
     __shared__ float shMass[SHARED_GRID_SIZE];
     __shared__ float shMomX[SHARED_GRID_SIZE];
@@ -78,9 +140,11 @@ __global__ void p2GTransferScatter(Particles p,Grid g,int number,int* sortedIndi
 
                         float3 d = {pPos.x - (posX + i), pPos.y - (posY + j), pPos.z - (posZ + k)};
                         float3 dist = {-d.x,-d.y,-d.z};
+
                         float weight = wx[i] * wy[j] * wz[k];
                         float weightedMass = pM * weight;
-                        float3 Cxd = p.multiplyCxd(c00, c01, c02, c10, c11, c12, c20, c21, c22, dist);
+
+                        float3 Cxd = p.multiplyCxd(oldC, dist);
                         float velX = weightedMass * (pVel.x + Cxd.x);
                         float velY = weightedMass * (pVel.y + Cxd.y);
                         float velZ = weightedMass * (pVel.z + Cxd.z);
@@ -128,57 +192,7 @@ __global__ void p2GTransferScatter(Particles p,Grid g,int number,int* sortedIndi
 }
 
 
-__device__ void multiply3x3(float *A,float *B,float *C)
-{
-        C[0]=A[0]*B[0] + A[1]*B[3] + A[2]*B[6];
-        C[1]=A[0]*B[1] + A[1]*B[4] + A[2]*B[7];
-        C[2]=A[0]*B[2] + A[1]*B[5] + A[2]*B[8];
 
-        C[3]=A[3]*B[0] + A[4]*B[3] + A[5]*B[6];
-        C[4]=A[3]*B[1] + A[4]*B[4] + A[5]*B[7];
-        C[5]=A[3]*B[2] + A[4]*B[5] + A[5]*B[8];
-
-        C[6]=A[6]*B[0] + A[7]*B[3] + A[8]*B[6];
-        C[7]=A[6]*B[1] + A[7]*B[4] + A[8]*B[7];
-        C[8]=A[6]*B[2] + A[7]*B[5] + A[8]*B[8];
-}
-
-__device__ void add3x3(float* A,float* B,float *C)
-{
-    for (int i=0;i<9;i++) C[i]=A[i]+B[i];
-}
-
-__device__ void multiply3x3ByConst(float a,float* B,float* C)
-{
-    for (int i=0;i<9;i++) C[i]=a*B[i];
-}
-
-__device__ __forceinline__ float det3x3(float *A)
-{
-    return A[0]*(A[4]*A[8]-A[5]*A[7]) - A[1]*(A[3]*A[8]-A[5]*A[6]) + A[2]*(A[3]*A[7] - A[4]*A[6]);
-}
-
-__device__ void calculateNewF(float *C,float *oldF,float *newF)
-{
-    float I[9] = {1.0f,0.0f,0.0f,0.0f,1.0f,0.0f,0.0f,0.0f,1.0f};
-    multiply3x3ByConst(DT,C,C);
-    add3x3(I,C,C);
-    multiply3x3(C,oldF,newF);
-}
-
-__device__ void forceC(float vP,float P,float mass,float* fC)
-{
-    float I[9] = {1.0f,0.0f,0.0f,0.0f,1.0f,0.0f,0.0f,0.0f,1.0f};
-    if (mass>0.0001)
-    {
-        multiply3x3ByConst(4.0f*DT*vP*P/mass,I,fC);
-    }
-    else
-    {
-        multiply3x3ByConst(4.0f*DT*vP*P,I,fC);
-    }
-
-}
 
 __global__ void g2PTransfer(Particles p, Grid g,int number,int *sortedIndices)
 {
@@ -246,20 +260,9 @@ __global__ void g2PTransfer(Particles p, Grid g,int number,int *sortedIndices)
     for (int i=0;i<9;i++) tempC[i]=totalC[i];
     calculateNewF(tempC,oldF,newF);
     float J = det3x3(newF);
+    J = fmaxf(0.1f, fminf(J, 100.0f));
+    // float J_third = powf(J, 1.0f/3.0f);
 
-    if (J < 0.1f) J = 0.1f;
-    if (J > 10.0f) J = 10.0f;
-
-    float pressure = COMPRESSION * (J-1);
-    //pressure = fmaxf(-10.0f, fminf(pressure, 10.0f));
-    float Vp = p.v[particleIdx] * J;
-    float I[9] = {1.0f,0.0f,0.0f,0.0f,1.0f,0.0f,0.0f,0.0f,1.0f};
-    forceC(Vp,pressure,p.m[particleIdx],fC);
-    //p.v[particleIdx] *=J;
-
-    // if (totalVel.x>10.0f) totalVel.x=10.0f; if (totalVel.x<-10.0f) totalVel.x=-10.0f;
-    // if (totalVel.y>10.0f) totalVel.y=10.0f; if (totalVel.y<-10.0f) totalVel.y=-10.0f;
-    // if (totalVel.z>10.0f) totalVel.z=10.0f; if (totalVel.z<-10.0f) totalVel.z=-10.0f;
     p.vel[0][particleIdx] = totalVel.x;
     p.vel[1][particleIdx] = totalVel.y;
     p.vel[2][particleIdx] = totalVel.z;
@@ -267,12 +270,8 @@ __global__ void g2PTransfer(Particles p, Grid g,int number,int *sortedIndices)
     p.pos[0][particleIdx] += totalVel.x * DT;
     p.pos[1][particleIdx] += totalVel.y * DT;
     p.pos[2][particleIdx] += totalVel.z * DT;
-    for (int i=0;i<9;i++) p.c[i][particleIdx] = totalC[i] + fC[i];
-    float J_root = powf(J, 1.0f/3.0f);
-    for (int i=0; i<9; i++) p.f[i][particleIdx] = 0.0f;
-    p.f[0][particleIdx] = J;
-    p.f[4][particleIdx] = J;
-    p.f[8][particleIdx] = J;
+    for (int i=0;i<9;i++) p.c[i][particleIdx] = totalC[i];
+    for (int i=0;i<9;i++) p.c[i][particleIdx] = newF[i];
 }
 
 __global__ void emptyGrid(Grid g)

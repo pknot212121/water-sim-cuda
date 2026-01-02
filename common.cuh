@@ -29,8 +29,8 @@ constexpr size_t PARTICLE_SIZE = PARTICLE_ATTRIBUTE_COUNT * sizeof(float);
 
 
 /* ---- CONSTS FOR GRID ---- */
-constexpr size_t SIZE_X = 128;
-constexpr size_t SIZE_Y = 128;
+constexpr size_t SIZE_X = 64;
+constexpr size_t SIZE_Y = 64;
 constexpr size_t SIZE_Z = 128;
 constexpr size_t PADDING = 2;
 
@@ -48,7 +48,8 @@ constexpr size_t GRID_NUMBER = SIZE_X*SIZE_Y*SIZE_Z;
 constexpr size_t THREADS_PER_BLOCK = 256;
 
 constexpr float GRAVITY = 9.81f;
-constexpr float DT = 0.03f;
+constexpr float DT = 0.05f;
+constexpr float GAMMA = 7.0f;
 constexpr float COMPRESSION = 100.0f;
 constexpr int SHARED_GRID_HEIGHT = 11;
 constexpr int SHARED_GRID_SIZE = SHARED_GRID_HEIGHT*SHARED_GRID_HEIGHT*SHARED_GRID_HEIGHT;
@@ -77,14 +78,12 @@ struct __align__(16) Particles
     }
 
     __device__ __forceinline__ float3 multiplyCxd(
-        float c00, float c01, float c02,
-        float c10, float c11, float c12,
-        float c20, float c21, float c22, float3 d)
+        float* C, float3 d)
     {
         return float3(
-            c00*d.x+c01*d.y+c02*d.z,
-            c10*d.x+c11*d.y+c12*d.z,
-            c20*d.x+c21*d.y+c22*d.z);
+            C[0]*d.x+C[1]*d.y+C[2]*d.z,
+            C[3]*d.x+C[4]*d.y+C[5]*d.z,
+            C[6]*d.x+C[7]*d.y+C[8]*d.z);
     }
 
     __device__ inline unsigned int expandBits(unsigned int v)
