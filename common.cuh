@@ -42,6 +42,7 @@ constexpr size_t GRID_NUMBER = SIZE_X*SIZE_Y*SIZE_Z;
 
 
 
+
 /* ---- OTHER CONSTS ---- */
 constexpr size_t THREADS_PER_BLOCK = 256;
 
@@ -50,7 +51,7 @@ constexpr float DT = 1.0f;
 
 constexpr int SHARED_GRID_HEIGHT = 11;
 constexpr int SHARED_GRID_SIZE = SHARED_GRID_HEIGHT*SHARED_GRID_HEIGHT*SHARED_GRID_HEIGHT;
-
+constexpr size_t GRID_BLOCKS = (GRID_NUMBER + THREADS_PER_BLOCK-1) / THREADS_PER_BLOCK;
 
 
 

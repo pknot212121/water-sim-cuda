@@ -8,6 +8,7 @@ __global__ void gridUpdate(Grid g);
 __global__ void gridTest(Grid g,int targetX, int targetY, int targetZ);
 __global__ void setKeys(Particles p,int* keys,int number);
 __global__ void sortedTest(int *sorted);
+__global__ void changeFormat(Particles p,float3 *buf,int number);
 
 void handleCUDAError(cudaError_t err)
 {
@@ -48,9 +49,11 @@ void Engine::step()
     sortParticles();
     p2GTransferScatter<<<blocksPerGrid,THREADS_PER_BLOCK>>>(getParticles(),getGrid(),number,d_values);
     handleCUDAError(cudaDeviceSynchronize());
-    gridUpdate<<<blocksPerGrid,THREADS_PER_BLOCK>>>(getGrid());
+    gridUpdate<<<GRID_BLOCKS,THREADS_PER_BLOCK>>>(getGrid());
     handleCUDAError(cudaDeviceSynchronize());
     g2PTransfer<<<blocksPerGrid,THREADS_PER_BLOCK>>>(getParticles(),getGrid(),number,d_values);
+    handleCUDAError(cudaDeviceSynchronize());
+    changeFormat<<<blocksPerGrid,THREADS_PER_BLOCK>>>(getParticles(),positionsToOpenGL,number);
     handleCUDAError(cudaDeviceSynchronize());
 }
 
@@ -59,6 +62,7 @@ void Engine::initParticles()
     handleCUDAError(cudaMalloc((void**)&d_buffer, number * PARTICLE_SIZE));
     handleCUDAError(cudaMalloc((void**)&d_values,number*sizeof(int)));
     handleCUDAError(cudaMalloc((void**)&d_cell_offsets,GRID_NUMBER*sizeof(int)));
+    handleCUDAError(cudaMalloc((void**)&positionsToOpenGL,number*sizeof(float3)));
     handleCUDAError(cudaMemcpy(d_buffer, h_buffer, number * PARTICLE_SIZE, cudaMemcpyHostToDevice));
 }
 

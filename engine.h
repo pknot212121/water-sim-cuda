@@ -19,6 +19,7 @@ class Engine
         void step();
         inline Particles getParticles(){ return Particles(d_buffer,number); }
         inline Grid getGrid(){return Grid(d_grid_buffer);};
+        inline float3* getPositions(){return positionsToOpenGL;}
         void initParticles();
         void sortParticles();
         void initGrid();
@@ -30,6 +31,7 @@ class Engine
         float *d_grid_buffer;
         int *d_values;
         int *d_cell_offsets;
+        float3 *positionsToOpenGL;
         size_t number;
         size_t granularity;
         size_t cellsPerPage;

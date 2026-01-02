@@ -7,10 +7,11 @@ Simulation::Simulation() : engine(createEngine()), renderer(engine.getNumber()) 
 
 Simulation::~Simulation() {}
 
+/* --- HAS TO BE DONE IN THIS OREDER - OTHERWISE WILL NOT WORK! ---- */
 void Simulation::run() {
     while (!renderer.isWindowClosed()) {
         this->engine.step();
-        this->renderer.draw();
+        this->renderer.draw(engine.getNumber(),engine.getPositions());
     }
 }
 

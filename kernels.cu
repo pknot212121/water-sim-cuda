@@ -293,6 +293,14 @@ __device__ unsigned int calculateMorton(unsigned int x, unsigned int y, unsigned
     return (expandBits(z) << 2) | (expandBits(y) << 1) | expandBits(x);
 }
 
+__global__ void changeFormat(Particles p,float3 *buf,int number)
+{
+    const int threadIndex = blockIdx.x * blockDim.x + threadIdx.x;
+    if (threadIndex >= number) return;
+    buf[threadIndex] = {p.pos[0][threadIndex],p.pos[1][threadIndex],p.pos[2][threadIndex]};
+    //printf("PARTICLE: (%f,%f,%f)",buf[threadIndex].x,buf[threadIndex].y,buf[threadIndex].z);
+}
+
 
 __global__ void setKeys(Particles p, int* keys, int number)
 {
