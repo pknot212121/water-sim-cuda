@@ -247,7 +247,14 @@ __global__ void p2GTransferGather(Particles p,Grid g,int number,int* sortedIndic
     g.momentum[2][threadIndex] = totalMomentum.z;
 }
 
-
+__global__ void emptyGrid(Grid g)
+{
+    const int threadIndex = blockIdx.x * blockDim.x + threadIdx.x;
+    g.mass[threadIndex] = 0.0f;
+    g.momentum[0][threadIndex] = 0.0f;
+    g.momentum[1][threadIndex] = 0.0f;
+    g.momentum[2][threadIndex] = 0.0f;
+}
 
 __global__ void gridUpdate(Grid g)
 {

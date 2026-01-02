@@ -9,6 +9,7 @@ __global__ void gridTest(Grid g,int targetX, int targetY, int targetZ);
 __global__ void setKeys(Particles p,int* keys,int number);
 __global__ void sortedTest(int *sorted);
 __global__ void changeFormat(Particles p,float3 *buf,int number);
+__global__ void emptyGrid(Grid g);
 
 void handleCUDAError(cudaError_t err)
 {
@@ -47,6 +48,7 @@ Engine::~Engine()
 void Engine::step()
 {
     sortParticles();
+    emptyGrid<<<GRID_BLOCKS,THREADS_PER_BLOCK>>>(getGrid());
     p2GTransferScatter<<<blocksPerGrid,THREADS_PER_BLOCK>>>(getParticles(),getGrid(),number,d_values);
     handleCUDAError(cudaDeviceSynchronize());
     gridUpdate<<<GRID_BLOCKS,THREADS_PER_BLOCK>>>(getGrid());
