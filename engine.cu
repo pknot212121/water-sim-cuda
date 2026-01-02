@@ -49,6 +49,7 @@ void Engine::step()
 {
     sortParticles();
     emptyGrid<<<GRID_BLOCKS,THREADS_PER_BLOCK>>>(getGrid());
+    handleCUDAError(cudaDeviceSynchronize());
     p2GTransferScatter<<<blocksPerGrid,THREADS_PER_BLOCK>>>(getParticles(),getGrid(),number,d_values);
     handleCUDAError(cudaDeviceSynchronize());
     gridUpdate<<<GRID_BLOCKS,THREADS_PER_BLOCK>>>(getGrid());

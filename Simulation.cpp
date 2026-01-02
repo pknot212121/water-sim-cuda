@@ -7,11 +7,12 @@ Simulation::Simulation() : engine(createEngine()), renderer(engine.getNumber()) 
 
 Simulation::~Simulation() {}
 
-/* --- HAS TO BE DONE IN THIS OREDER - OTHERWISE WILL NOT WORK! ---- */
+/* --- HAS TO BE DONE IN THIS ORDER - OTHERWISE WILL NOT WORK! ---- */
 void Simulation::run() {
     while (!renderer.isWindowClosed()) {
         this->engine.step();
         this->renderer.draw(engine.getNumber(),engine.getPositions());
+        //getchar();
     }
 }
 
@@ -23,7 +24,7 @@ Engine Simulation::createEngine() {
     if (!objData.success)
         throw std::runtime_error("Failed to load obj data");
 
-    VoxelData voxelData = voxelEngine.voxelize(objData, 0.1f);
+    VoxelData voxelData = voxelEngine.voxelize(objData, 0.3f);
     if (voxelData.count<1)
         throw std::runtime_error("Failed to load voxel data");
 
@@ -33,7 +34,7 @@ Engine Simulation::createEngine() {
     std::vector<float> result = voxelPipeline.process(voxelData);
 
     size_t bufferSize = result.size();
-    float* h_buffer = new float[bufferSize];
+    float* h_buffer = new float[bufferSize]();
     std::copy(result.begin(), result.end(), h_buffer);
 
     return Engine(bufferSize / 26, h_buffer);

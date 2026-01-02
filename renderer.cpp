@@ -15,8 +15,8 @@ const char* fragmentShaderSource = "#version 330 core\n"
 "void main() { FragColor = vec4(0.0,0.5,1.0,1.0); }\0";
 
 constexpr size_t SIZE_X = 128;
-constexpr size_t SIZE_Y = 512;
-constexpr size_t SIZE_Z = 512;
+constexpr size_t SIZE_Y = 128;
+constexpr size_t SIZE_Z = 128;
 
 glm::mat4 projection = glm::perspective(glm::radians(45.0f),(float)SCREEN_WIDTH/SCREEN_HEIGHT,0.1f,5000.0f);
 glm::mat4 view = glm::lookAt(glm::vec3(SIZE_X/2,SIZE_Y/2,SIZE_Z*2),glm::vec3(SIZE_X/2,SIZE_Y/2,SIZE_Z/2),glm::vec3(0.0f,1.0f,0.0f));

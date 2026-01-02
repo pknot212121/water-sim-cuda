@@ -11,8 +11,11 @@ __global__ void testKernel(Particles p)
 __global__ void p2GTransferScatter(Particles p,Grid g,int number,int* sortedIndices)
 {
     const int threadIndex = blockIdx.x * blockDim.x + threadIdx.x;
-    const int particleIdx = __ldg(&sortedIndices[threadIndex]);
-    const int firstIdx = __ldg(&sortedIndices[blockIdx.x * blockDim.x]);
+    int particleIdx = 0;
+    if (threadIndex < number) particleIdx = __ldg(&sortedIndices[threadIndex]);
+    int blockStartIdx = blockIdx.x * blockDim.x;
+    if (blockStartIdx >= number) return;
+    const int firstIdx = __ldg(&sortedIndices[blockStartIdx]);
     const int posX = (int)(p.pos[0][particleIdx]-0.5f);
     const int posY = (int)(p.pos[1][particleIdx]-0.5f);
     const int posZ = (int)(p.pos[2][particleIdx]-0.5f);
@@ -72,12 +75,13 @@ __global__ void p2GTransferScatter(Particles p,Grid g,int number,int* sortedIndi
 
 
                         float3 d = {pPos.x - (posX + i), pPos.y - (posY + j), pPos.z - (posZ + k)};
+                        float3 dist = {-d.x,-d.y,-d.z};
                         float weight = wx[i] * wy[j] * wz[k];
                         float weightedMass = pM * weight;
-                        float3 Cxd = p.multiplyCxd(c00, c01, c02, c10, c11, c12, c20, c21, c22, d);
-                        float velX = weightedMass * pVel.x + Cxd.x;
-                        float velY = weightedMass * pVel.y + Cxd.y;
-                        float velZ = weightedMass * pVel.z + Cxd.z;
+                        float3 Cxd = p.multiplyCxd(c00, c01, c02, c10, c11, c12, c20, c21, c22, dist);
+                        float velX = weightedMass * (pVel.x + Cxd.x);
+                        float velY = weightedMass * (pVel.y + Cxd.y);
+                        float velZ = weightedMass * (pVel.z + Cxd.z);
 
                         if (dx >= 0 && dx < SHARED_GRID_HEIGHT && dy >= 0 && dy < SHARED_GRID_HEIGHT && dz >= 0 && dz <SHARED_GRID_HEIGHT)
                         {
@@ -101,22 +105,24 @@ __global__ void p2GTransferScatter(Particles p,Grid g,int number,int* sortedIndi
 
 
     __syncthreads();
-    for (int i=threadIdx.x;i<SHARED_GRID_SIZE;i+=blockDim.x)
+    if (threadIndex < number)
     {
-        int gx = minX + (i % SHARED_GRID_HEIGHT)-1;
-        int gy = minY + (i / SHARED_GRID_HEIGHT) % SHARED_GRID_HEIGHT-1;
-        int gz = minZ + i / (SHARED_GRID_HEIGHT * SHARED_GRID_HEIGHT)-1;
-        size_t gIdx = g.getGridIdx(gx, gy, gz);
-        if (shMass[i]>1e-9)
+        for (int i=threadIdx.x;i<SHARED_GRID_SIZE;i+=blockDim.x)
         {
-            atomicAdd(&g.mass[gIdx],shMass[i]);
-            atomicAdd(&g.momentum[0][gIdx],shMomX[i]);
-            atomicAdd(&g.momentum[1][gIdx],shMomY[i]);
-            atomicAdd(&g.momentum[2][gIdx],shMomZ[i]);
+            int gx = minX + (i % SHARED_GRID_HEIGHT)-1;
+            int gy = minY + (i / SHARED_GRID_HEIGHT) % SHARED_GRID_HEIGHT-1;
+            int gz = minZ + i / (SHARED_GRID_HEIGHT * SHARED_GRID_HEIGHT)-1;
+            size_t gIdx = g.getGridIdx(gx, gy, gz);
+            if (shMass[i]>1e-9)
+            {
+                atomicAdd(&g.mass[gIdx],shMass[i]);
+                atomicAdd(&g.momentum[0][gIdx],shMomX[i]);
+                atomicAdd(&g.momentum[1][gIdx],shMomY[i]);
+                atomicAdd(&g.momentum[2][gIdx],shMomZ[i]);
+            }
+
         }
-
     }
-
 
 }
 
@@ -259,17 +265,35 @@ __global__ void emptyGrid(Grid g)
 __global__ void gridUpdate(Grid g)
 {
     const int threadIndex = blockIdx.x * blockDim.x + threadIdx.x;
+    int x = threadIndex % SIZE_X;
+    int y = (threadIndex / SIZE_X) % SIZE_Y;
+    int z = threadIndex / (SIZE_X*SIZE_Y);
     float mass = g.mass[threadIndex];
     float3 momentum = {g.momentum[0][threadIndex],g.momentum[1][threadIndex],g.momentum[2][threadIndex]};
     float3 velocity = {0.0f,0.0f,0.0f};
     if (mass> 1e-9f)
     {
-        velocity.x += momentum.x/mass;
-        velocity.y += momentum.y/mass - GRAVITY*DT;
-        velocity.z += momentum.z/mass;
+        velocity.x = momentum.x/mass;
+        velocity.y = momentum.y/mass - GRAVITY*DT;
+        velocity.z = momentum.z/mass;
+
+        if (x<PADDING && velocity.x<0) velocity.x=0.0f;
+        if (y<PADDING && velocity.y<0) velocity.y=0.0f;
+        if (z<PADDING && velocity.z<0) velocity.z=0.0f;
+
+        if (x>SIZE_X-1-PADDING && velocity.x>0) velocity.x=0.0f;
+        if (y>SIZE_Y-1-PADDING && velocity.y>0) velocity.y=0.0f;
+        if (z>SIZE_Z-1-PADDING && velocity.z>0) velocity.z=0.0f;
+
         g.momentum[0][threadIndex] = velocity.x;
         g.momentum[1][threadIndex] = velocity.y;
         g.momentum[2][threadIndex] = velocity.z;
+    }
+    else
+    {
+        g.momentum[0][threadIndex] = 0.0f;
+        g.momentum[1][threadIndex] = 0.0f;
+        g.momentum[2][threadIndex] = 0.0f;
     }
 }
 
