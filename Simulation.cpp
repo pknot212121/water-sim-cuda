@@ -12,7 +12,7 @@ void Simulation::run() {
     while (!renderer.isWindowClosed()) {
         this->engine.step();
         this->renderer.draw(engine.getNumber(),engine.getPositions());
-        //getchar();
+        getchar();
     }
 }
 

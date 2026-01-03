@@ -235,13 +235,37 @@ __global__ void g2PTransfer(Particles p, Grid g,int number,int *sortedIndices)
     float J = det3x3(newF);
     J = fmaxf(0.1f, fminf(J, 100.0f));
 
+
+    float3 nextPos = {
+        p.pos[0][particleIdx] + totalVel.x * DT,
+        p.pos[1][particleIdx] + totalVel.y * DT,
+        p.pos[2][particleIdx] + totalVel.z * DT
+    };
+
+    float dist = getSDF(nextPos,g);
+    printf("DIST: %f\n",dist);
+    if (dist < 0.0f)
+    {
+        float3 normal = calculateNormal(nextPos,g);
+        nextPos.x -= dist * normal.x;
+        nextPos.y -= dist * normal.y;
+        nextPos.z -= dist * normal.z;
+        float dot = totalVel.x * normal.x + totalVel.y * normal.y + totalVel.z * normal.z;
+        if (dot < 0.0f)
+        {
+            totalVel.x -= dot * normal.x;
+            totalVel.y -= dot * normal.y;
+            totalVel.z -= dot * normal.z;
+        }
+    }
+
     p.vel[0][particleIdx] = totalVel.x;
     p.vel[1][particleIdx] = totalVel.y;
     p.vel[2][particleIdx] = totalVel.z;
 
-    p.pos[0][particleIdx] += totalVel.x * DT;
-    p.pos[1][particleIdx] += totalVel.y * DT;
-    p.pos[2][particleIdx] += totalVel.z * DT;
+    p.pos[0][particleIdx] = nextPos.x;
+    p.pos[1][particleIdx] = nextPos.y;
+    p.pos[2][particleIdx] = nextPos.z;
     for (int i=0;i<9;i++) p.c[i][particleIdx] = totalC[i];
     for (int i=0;i<9;i++) p.c[i][particleIdx] = newF[i];
 }
