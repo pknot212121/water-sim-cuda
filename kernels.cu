@@ -31,6 +31,7 @@ __global__ void p2GTransferScatter(Particles p,Grid g,int number,int* sortedIndi
     float J = det3x3(oldF);
     J = fmaxf(0.1f, fminf(J, 1.1f));
     float pressure = COMPRESSION * (powf(J,GAMMA) - 1.0f);
+    if (pressure < 0.0f) pressure = 0.0f;
     float volume = p.v[particleIdx] * J;
     float stressTerm[9] = {1.0f,0.0f,0.0f,0.0f,1.0f,0.0f,0.0f,0.0f,1.0f};
 
