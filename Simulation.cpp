@@ -23,15 +23,14 @@ Engine Simulation::createEngine() {
     ObjData objData = objLoader.loadObj("test.obj");
     if (!objData.success)
         throw std::runtime_error("Failed to load obj data");
-    float resolution = 0.1f;
-    VoxelData voxelData = voxelEngine.voxelize(objData, resolution);
+    VoxelData voxelData = voxelEngine.voxelize(objData, RESOLUTION);
     if (voxelData.count<1)
         throw std::runtime_error("Failed to load voxel data");
 
     float3 displacement = {0.0f, 0.0f, 0.0f};
     voxelEngine.normalize(voxelData, SIZE_X, 1.0f, displacement);
 
-    std::vector<float> result = voxelPipeline.process(voxelData,resolution);
+    std::vector<float> result = voxelPipeline.process(voxelData,RESOLUTION);
 
     size_t bufferSize = result.size();
     float* h_buffer = new float[bufferSize]();

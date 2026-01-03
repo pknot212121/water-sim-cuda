@@ -368,7 +368,7 @@ __global__ void initFMatrices(Particles p,int number)
     p.f[0][threadIndex] = 1.0f;
     p.f[4][threadIndex] = 1.0f;
     p.f[8][threadIndex] = 1.0f;
-    p.v[threadIndex] = 0.1f*0.1f*0.1f;
+    p.v[threadIndex] = RESOLUTION*RESOLUTION*RESOLUTION;
     p.m[threadIndex] = 1.0f;
 }
 

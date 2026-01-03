@@ -2,13 +2,10 @@
 #include <GLFW/glfw3.h>
 #include "cuda_runtime.h"
 #include <cuda_gl_interop.h>
+#include "common.cuh"
 
 constexpr int SCREEN_WIDTH = 800;
 constexpr int SCREEN_HEIGHT = 600;
-
-
-
-
 
 class Renderer
 {
