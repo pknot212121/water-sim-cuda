@@ -1,8 +1,10 @@
 #pragma once
 
-#include "ObjLoader.h"
+#include <cstddef>
 #include <vector>
+#include <algorithm>
 #include <cuda_runtime.h>
+#include "ObjLoader.h"
 
 struct VoxelData
 {
@@ -12,21 +14,21 @@ struct VoxelData
     float3 boundingBoxMin;
     float3 boundingBoxMax;
 
-    VoxelData() : count(0), resolution(0.0f)
-    {
-        pos[0] = nullptr;
-        pos[1] = nullptr;
-        pos[2] = nullptr;
-        boundingBoxMin = {0.0f, 0.0f, 0.0f};
-        boundingBoxMax = {0.0f, 0.0f, 0.0f};
-    }
+    VoxelData();
 
-    ~VoxelData()
-    {
-        if (pos[0]) delete[] pos[0];
-        if (pos[1]) delete[] pos[1];
-        if (pos[2]) delete[] pos[2];
-    }
+    // Copy constructor - deep copy
+    VoxelData(const VoxelData& other);
+
+    // Move constructor
+    VoxelData(VoxelData&& other) noexcept;
+
+    // Copy assignment operator
+    VoxelData& operator=(const VoxelData& other);
+
+    // Move assignment operator
+    VoxelData& operator=(VoxelData&& other) noexcept;
+
+    ~VoxelData();
 };
 
 struct Triangle

@@ -3,6 +3,118 @@
 #include <cmath>
 #include <algorithm>
 
+// VoxelData implementation
+VoxelData::VoxelData() : count(0), resolution(0.0f)
+{
+    pos[0] = nullptr;
+    pos[1] = nullptr;
+    pos[2] = nullptr;
+    boundingBoxMin = {0.0f, 0.0f, 0.0f};
+    boundingBoxMax = {0.0f, 0.0f, 0.0f};
+}
+
+VoxelData::VoxelData(const VoxelData& other) : count(other.count), resolution(other.resolution),
+                                    boundingBoxMin(other.boundingBoxMin), boundingBoxMax(other.boundingBoxMax)
+{
+    if (count > 0)
+    {
+        pos[0] = new float[count];
+        pos[1] = new float[count];
+        pos[2] = new float[count];
+        std::copy(other.pos[0], other.pos[0] + count, pos[0]);
+        std::copy(other.pos[1], other.pos[1] + count, pos[1]);
+        std::copy(other.pos[2], other.pos[2] + count, pos[2]);
+    }
+    else
+    {
+        pos[0] = nullptr;
+        pos[1] = nullptr;
+        pos[2] = nullptr;
+    }
+}
+
+VoxelData::VoxelData(VoxelData&& other) noexcept : count(other.count), resolution(other.resolution),
+                                         boundingBoxMin(other.boundingBoxMin), boundingBoxMax(other.boundingBoxMax)
+{
+    pos[0] = other.pos[0];
+    pos[1] = other.pos[1];
+    pos[2] = other.pos[2];
+
+    other.pos[0] = nullptr;
+    other.pos[1] = nullptr;
+    other.pos[2] = nullptr;
+    other.count = 0;
+}
+
+VoxelData& VoxelData::operator=(const VoxelData& other)
+{
+    if (this != &other)
+    {
+        // Clean up existing data
+        if (pos[0]) delete[] pos[0];
+        if (pos[1]) delete[] pos[1];
+        if (pos[2]) delete[] pos[2];
+
+        // Copy data
+        count = other.count;
+        resolution = other.resolution;
+        boundingBoxMin = other.boundingBoxMin;
+        boundingBoxMax = other.boundingBoxMax;
+
+        if (count > 0)
+        {
+            pos[0] = new float[count];
+            pos[1] = new float[count];
+            pos[2] = new float[count];
+            std::copy(other.pos[0], other.pos[0] + count, pos[0]);
+            std::copy(other.pos[1], other.pos[1] + count, pos[1]);
+            std::copy(other.pos[2], other.pos[2] + count, pos[2]);
+        }
+        else
+        {
+            pos[0] = nullptr;
+            pos[1] = nullptr;
+            pos[2] = nullptr;
+        }
+    }
+    return *this;
+}
+
+VoxelData& VoxelData::operator=(VoxelData&& other) noexcept
+{
+    if (this != &other)
+    {
+        // Clean up existing data
+        if (pos[0]) delete[] pos[0];
+        if (pos[1]) delete[] pos[1];
+        if (pos[2]) delete[] pos[2];
+
+        // Move data
+        count = other.count;
+        resolution = other.resolution;
+        boundingBoxMin = other.boundingBoxMin;
+        boundingBoxMax = other.boundingBoxMax;
+        pos[0] = other.pos[0];
+        pos[1] = other.pos[1];
+        pos[2] = other.pos[2];
+
+        // Reset other
+        other.pos[0] = nullptr;
+        other.pos[1] = nullptr;
+        other.pos[2] = nullptr;
+        other.count = 0;
+    }
+    return *this;
+}
+
+VoxelData::~VoxelData()
+{
+    if (pos[0]) delete[] pos[0];
+    if (pos[1]) delete[] pos[1];
+    if (pos[2]) delete[] pos[2];
+}
+
+// VoxelEngine implementation
 VoxelData VoxelEngine::voxelize(const ObjData& objData, float resolution)
 {
     VoxelData voxelData;

@@ -21,39 +21,38 @@ Engine Simulation::createEngine() {
     this->voxelEngine = VoxelEngine();
     this->voxelPipeline = VoxelPipeline();
 
-    // Wczytanie kilka obiektow voxelowych
-    std::vector<VoxelData> voxelObjects;
-    voxelObjects.push_back(Prepare_object("test.obj")[0]);
-    voxelObjects.push_back(Prepare_object("test.obj")[0]);
-    voxelObjects.push_back(Prepare_object("test.obj")[0]);
-    voxelObjects.push_back(Prepare_object("test.obj")[0]);
+    // Wczytanie i przetworzenie kilku obiektow voxelowych
+    std::vector<VoxelData> voxelObjects = {
+        Prepare_object("test.obj"),
+        Prepare_object("test.obj"),
+        Prepare_object("test.obj")
+    };
 
-    std::vector<float> combinedResult;
-    for (const auto& voxelData : voxelObjects) {
-        std::vector<float> result = voxelPipeline.process(voxelData, RESOLUTION);
-        combinedResult.insert(combinedResult.end(), result.begin(), result.end());
-    }
+    // Scalenie wszystkich VoxelData w jeden
+    VoxelData combinedVoxelData = MergeVoxelData(voxelObjects);
+
+    // Wywołanie process tylko raz na scalonych danych
+    std::vector<float> combinedResult = voxelPipeline.process(combinedVoxelData, RESOLUTION);
 
     size_t bufferSize = combinedResult.size();
     float* h_buffer = new float[bufferSize]();
     std::copy(combinedResult.begin(), combinedResult.end(), h_buffer);
 
     // Wczytanie kilka obiektow kolizyjnych
-    std::vector<Triangle> allTriangles;
-    std::vector<Triangle> triangles1 = Prepare_triangles("pipes.obj");
-    std::vector<Triangle> triangles2 = Prepare_triangles("pipes.obj");
-    std::vector<Triangle> triangles3 = Prepare_triangles("pipes.obj");
-    std::vector<Triangle> triangles4 = Prepare_triangles("pipes.obj");
+    std::vector<std::vector<Triangle>> triangleObjects = {
+        Prepare_triangles("pipes.obj"),
+        Prepare_triangles("pipes.obj"),
+        Prepare_triangles("pipes.obj"),
+        Prepare_triangles("pipes.obj")
+    };
 
-    allTriangles.insert(allTriangles.end(), triangles1.begin(), triangles1.end());
-    allTriangles.insert(allTriangles.end(), triangles2.begin(), triangles2.end());
-    allTriangles.insert(allTriangles.end(), triangles3.begin(), triangles3.end());
-    allTriangles.insert(allTriangles.end(), triangles4.begin(), triangles4.end());
+    // Scalenie wszystkich trójkątów w jeden wektor
+    std::vector<Triangle> allTriangles = MergeTriangles(triangleObjects);
 
     return Engine(bufferSize / 26, h_buffer);
 }
 
-std::vector<VoxelData> Simulation::Prepare_object(const std::string& objPath, float scale, float3 displacement) {
+VoxelData Simulation::Prepare_object(const std::string& objPath, float scale, float3 displacement) {
     ObjData objData = objLoader.loadObj(objPath);
     if (!objData.success)
         throw std::runtime_error("Failed to load obj data");
@@ -64,16 +63,113 @@ std::vector<VoxelData> Simulation::Prepare_object(const std::string& objPath, fl
 
     voxelEngine.normalize(voxelData, SIZE_X, scale, displacement);
 
-    return {voxelData};
+    return voxelData;
 }
 
 std::vector<Triangle> Simulation::Prepare_triangles(const std::string& objPath, float scale, float3 displacement) {
-    ObjData coliderData = objLoader.loadObj(objPath);
-    if (!coliderData.success)
-        throw std::runtime_error("Failed to load colider data");
+    try {
+        ObjData coliderData = objLoader.loadObj(objPath);
+        if (!coliderData.success)
+        {
+            std::cerr << "Failed to load colider data from: " << objPath << std::endl;
+            return std::vector<Triangle>();
+        }
 
-    std::vector<Triangle> coliderTriangles = voxelEngine.extractTriangles(coliderData);
-    voxelEngine.normalize(coliderTriangles, SIZE_X, scale, displacement);
+        std::vector<Triangle> coliderTriangles = voxelEngine.extractTriangles(coliderData);
+        std::cout << "Extracted " << coliderTriangles.size() << " triangles from " << objPath << std::endl;
 
-    return coliderTriangles;
+        if (coliderTriangles.empty())
+        {
+            std::cerr << "Warning: No triangles extracted from " << objPath << std::endl;
+            return std::vector<Triangle>();
+        }
+
+        voxelEngine.normalize(coliderTriangles, SIZE_X, scale, displacement);
+
+        return coliderTriangles;
+    }
+    catch (const std::exception& e) {
+        std::cerr << "Error podczas Prepare_Triangles: " << e.what() << std::endl;
+        return std::vector<Triangle>();
+    }
 }
+
+VoxelData Simulation::MergeVoxelData(const std::vector<VoxelData>& voxelDataArray) {
+    if (voxelDataArray.empty()) {
+        return VoxelData();
+    }
+
+    // Oblicz całkowitą liczbę voxeli
+    size_t totalCount = 0;
+    for (const auto& voxelData : voxelDataArray) {
+        totalCount += voxelData.count;
+    }
+
+    if (totalCount == 0) {
+        std::cerr << "Warning: MergeVoxelData - total count is 0" << std::endl;
+        return VoxelData();
+    }
+
+    // Utwórz nowy VoxelData
+    VoxelData combinedVoxelData;
+    combinedVoxelData.count = totalCount;
+    combinedVoxelData.resolution = voxelDataArray[0].resolution;
+    combinedVoxelData.pos[0] = new float[totalCount];
+    combinedVoxelData.pos[1] = new float[totalCount];
+    combinedVoxelData.pos[2] = new float[totalCount];
+
+    std::cout << "MergeVoxelData: Merging " << voxelDataArray.size() << " VoxelData objects, total voxels: " << totalCount << std::endl;
+
+    // Skopiuj dane z każdego VoxelData
+    size_t offset = 0;
+    for (size_t i = 0; i < voxelDataArray.size(); i++) {
+        const auto& voxelData = voxelDataArray[i];
+
+        if (voxelData.count == 0) {
+            std::cout << "  VoxelData[" << i << "] is empty, skipping" << std::endl;
+            continue;
+        }
+
+        // Walidacja wskaźników
+        if (!voxelData.pos[0] || !voxelData.pos[1] || !voxelData.pos[2]) {
+            std::cerr << "Error: VoxelData[" << i << "] has null pointers! count=" << voxelData.count << std::endl;
+            std::cerr << "  pos[0]=" << voxelData.pos[0] << " pos[1]=" << voxelData.pos[1] << " pos[2]=" << voxelData.pos[2] << std::endl;
+            continue;
+        }
+
+        std::cout << "  Copying VoxelData[" << i << "] with " << voxelData.count << " voxels at offset " << offset << std::endl;
+
+        std::copy(voxelData.pos[0], voxelData.pos[0] + voxelData.count, combinedVoxelData.pos[0] + offset);
+        std::copy(voxelData.pos[1], voxelData.pos[1] + voxelData.count, combinedVoxelData.pos[1] + offset);
+        std::copy(voxelData.pos[2], voxelData.pos[2] + voxelData.count, combinedVoxelData.pos[2] + offset);
+        offset += voxelData.count;
+    }
+
+    std::cout << "MergeVoxelData: Successfully merged, final offset: " << offset << std::endl;
+
+    return combinedVoxelData;
+}
+
+std::vector<Triangle> Simulation::MergeTriangles(const std::vector<std::vector<Triangle>>& triangleArrays) {
+    if (triangleArrays.empty()) {
+        return std::vector<Triangle>();
+    }
+
+    // Oblicz całkowitą liczbę trójkątów
+    size_t totalCount = 0;
+    for (const auto& triangles : triangleArrays) {
+        totalCount += triangles.size();
+    }
+
+    // Utwórz nowy wektor i zarezerwuj pamięć
+    std::vector<Triangle> combinedTriangles;
+    combinedTriangles.reserve(totalCount);
+
+    // Skopiuj trójkąty z każdego wektora
+    for (const auto& triangles : triangleArrays) {
+        combinedTriangles.insert(combinedTriangles.end(), triangles.begin(), triangles.end());
+    }
+
+    return combinedTriangles;
+}
+
