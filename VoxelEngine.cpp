@@ -336,6 +336,222 @@ void VoxelEngine::normalize(VoxelData& data, float normalizeSize, float scale, c
     std::cout << "Normalization complete!" << std::endl;
 }
 
+void VoxelEngine::normalize(std::vector<Triangle>& triangles, float normalizeSize, float scale, const float3& displacement)
+{
+    if (triangles.empty())
+    {
+        std::cerr << "VoxelEngine::normalize: No triangles to normalize" << std::endl;
+        return;
+    }
+
+    std::cout << "Normalizing " << triangles.size() << " triangles..." << std::endl;
+    std::cout << "  Normalize size: " << normalizeSize << std::endl;
+    std::cout << "  Scale factor: " << scale << std::endl;
+    std::cout << "  Displacement: (" << displacement.x << ", " << displacement.y << ", " << displacement.z << ")" << std::endl;
+
+    // Step 1: Find current bounding box of all triangle vertices
+    float minX = triangles[0].v0.x, maxX = triangles[0].v0.x;
+    float minY = triangles[0].v0.y, maxY = triangles[0].v0.y;
+    float minZ = triangles[0].v0.z, maxZ = triangles[0].v0.z;
+
+    for (const auto& tri : triangles)
+    {
+        // Check all three vertices
+        minX = min3(minX, tri.v0.x, tri.v1.x);
+        minX = std::min(minX, tri.v2.x);
+        maxX = max3(maxX, tri.v0.x, tri.v1.x);
+        maxX = std::max(maxX, tri.v2.x);
+
+        minY = min3(minY, tri.v0.y, tri.v1.y);
+        minY = std::min(minY, tri.v2.y);
+        maxY = max3(maxY, tri.v0.y, tri.v1.y);
+        maxY = std::max(maxY, tri.v2.y);
+
+        minZ = min3(minZ, tri.v0.z, tri.v1.z);
+        minZ = std::min(minZ, tri.v2.z);
+        maxZ = max3(maxZ, tri.v0.z, tri.v1.z);
+        maxZ = std::max(maxZ, tri.v2.z);
+    }
+
+    std::cout << "  Current bounds: (" << minX << ", " << minY << ", " << minZ << ") to ("
+              << maxX << ", " << maxY << ", " << maxZ << ")" << std::endl;
+
+    // Step 2: Calculate the maximum dimension to maintain aspect ratio
+    float sizeX = maxX - minX;
+    float sizeY = maxY - minY;
+    float sizeZ = maxZ - minZ;
+    float maxDimension = max3(sizeX, sizeY, sizeZ);
+
+    if (maxDimension < 1e-6f)
+    {
+        std::cerr << "VoxelEngine::normalize: Triangle data has zero size" << std::endl;
+        return;
+    }
+
+    std::cout << "  Current size: (" << sizeX << ", " << sizeY << ", " << sizeZ << ")" << std::endl;
+    std::cout << "  Max dimension: " << maxDimension << std::endl;
+
+    // Step 3: Normalize to [0, normalizeSize] maintaining aspect ratio
+    float normalizationScale = normalizeSize / maxDimension;
+    float3 currentCenter = {
+        (minX + maxX) * 0.5f,
+        (minY + maxY) * 0.5f,
+        (minZ + maxZ) * 0.5f
+    };
+
+    // Lambda to transform a single vertex
+    auto transformVertex = [&](float3& vertex) {
+        // Translate to origin
+        vertex.x -= currentCenter.x;
+        vertex.y -= currentCenter.y;
+        vertex.z -= currentCenter.z;
+
+        // Scale to normalized size
+        vertex.x *= normalizationScale;
+        vertex.y *= normalizationScale;
+        vertex.z *= normalizationScale;
+
+        // Translate to center of normalized space
+        vertex.x += normalizeSize * 0.5f;
+        vertex.y += normalizeSize * 0.5f;
+        vertex.z += normalizeSize * 0.5f;
+    };
+
+    // Apply normalization to all vertices
+    for (auto& tri : triangles)
+    {
+        transformVertex(tri.v0);
+        transformVertex(tri.v1);
+        transformVertex(tri.v2);
+    }
+
+    std::cout << "  After normalization, triangles are centered at ("
+              << normalizeSize * 0.5f << ", "
+              << normalizeSize * 0.5f << ", "
+              << normalizeSize * 0.5f << ")" << std::endl;
+
+    // Step 4: Scale from center of normalized space
+    float3 scaleCenter = {normalizeSize * 0.5f, normalizeSize * 0.5f, normalizeSize * 0.5f};
+
+    auto scaleVertex = [&](float3& vertex) {
+        // Translate to scale center
+        vertex.x -= scaleCenter.x;
+        vertex.y -= scaleCenter.y;
+        vertex.z -= scaleCenter.z;
+
+        // Apply scale
+        vertex.x *= scale;
+        vertex.y *= scale;
+        vertex.z *= scale;
+
+        // Translate back
+        vertex.x += scaleCenter.x;
+        vertex.y += scaleCenter.y;
+        vertex.z += scaleCenter.z;
+    };
+
+    for (auto& tri : triangles)
+    {
+        scaleVertex(tri.v0);
+        scaleVertex(tri.v1);
+        scaleVertex(tri.v2);
+    }
+
+    std::cout << "  After scaling by " << scale << "x" << std::endl;
+
+    // Step 5: Apply displacement
+    for (auto& tri : triangles)
+    {
+        tri.v0.x += displacement.x;
+        tri.v0.y += displacement.y;
+        tri.v0.z += displacement.z;
+
+        tri.v1.x += displacement.x;
+        tri.v1.y += displacement.y;
+        tri.v1.z += displacement.z;
+
+        tri.v2.x += displacement.x;
+        tri.v2.y += displacement.y;
+        tri.v2.z += displacement.z;
+    }
+
+    std::cout << "  After displacement" << std::endl;
+
+    // Step 6: Filter out triangles that are completely outside normalization bounds [0, normalizeSize]
+    std::vector<Triangle> validTriangles;
+    size_t removedCount = 0;
+
+    for (const auto& tri : triangles)
+    {
+        // Check if at least one vertex is within bounds
+        bool v0Valid = (tri.v0.x >= 0.0f && tri.v0.x <= normalizeSize &&
+                        tri.v0.y >= 0.0f && tri.v0.y <= normalizeSize &&
+                        tri.v0.z >= 0.0f && tri.v0.z <= normalizeSize);
+
+        bool v1Valid = (tri.v1.x >= 0.0f && tri.v1.x <= normalizeSize &&
+                        tri.v1.y >= 0.0f && tri.v1.y <= normalizeSize &&
+                        tri.v1.z >= 0.0f && tri.v1.z <= normalizeSize);
+
+        bool v2Valid = (tri.v2.x >= 0.0f && tri.v2.x <= normalizeSize &&
+                        tri.v2.y >= 0.0f && tri.v2.y <= normalizeSize &&
+                        tri.v2.z >= 0.0f && tri.v2.z <= normalizeSize);
+
+        // Keep triangle if at least one vertex is within bounds
+        if (v0Valid || v1Valid || v2Valid)
+        {
+            validTriangles.push_back(tri);
+        }
+        else
+        {
+            removedCount++;
+        }
+    }
+
+    // Replace triangles with filtered ones
+    if (validTriangles.size() != triangles.size())
+    {
+        std::cout << "  Removed " << removedCount << " triangles completely outside bounds [0, " << normalizeSize << "]" << std::endl;
+        std::cout << "  Remaining triangles: " << validTriangles.size() << std::endl;
+
+        triangles = std::move(validTriangles);
+    }
+
+    // Calculate and display final bounds
+    if (!triangles.empty())
+    {
+        minX = maxX = triangles[0].v0.x;
+        minY = maxY = triangles[0].v0.y;
+        minZ = maxZ = triangles[0].v0.z;
+
+        for (const auto& tri : triangles)
+        {
+            minX = min3(minX, tri.v0.x, tri.v1.x);
+            minX = std::min(minX, tri.v2.x);
+            maxX = max3(maxX, tri.v0.x, tri.v1.x);
+            maxX = std::max(maxX, tri.v2.x);
+
+            minY = min3(minY, tri.v0.y, tri.v1.y);
+            minY = std::min(minY, tri.v2.y);
+            maxY = max3(maxY, tri.v0.y, tri.v1.y);
+            maxY = std::max(maxY, tri.v2.y);
+
+            minZ = min3(minZ, tri.v0.z, tri.v1.z);
+            minZ = std::min(minZ, tri.v2.z);
+            maxZ = max3(maxZ, tri.v0.z, tri.v1.z);
+            maxZ = std::max(maxZ, tri.v2.z);
+        }
+
+        std::cout << "  Final bounds: (" << minX << ", " << minY << ", " << minZ << ") to ("
+                  << maxX << ", " << maxY << ", " << maxZ << ")" << std::endl;
+    }
+    else
+    {
+        std::cout << "  Warning: All triangles were removed!" << std::endl;
+    }
+
+    std::cout << "Triangle normalization complete!" << std::endl;
+}
+
 VoxelEngine::BoundingBox VoxelEngine::calculateBoundingBox(const ObjData& objData)
 {
     BoundingBox bbox;
@@ -365,7 +581,7 @@ VoxelEngine::BoundingBox VoxelEngine::calculateBoundingBox(const ObjData& objDat
     return bbox;
 }
 
-std::vector<VoxelEngine::Triangle> VoxelEngine::extractTriangles(const ObjData& objData)
+std::vector<Triangle> VoxelEngine::extractTriangles(const ObjData& objData)
 {
     std::vector<Triangle> triangles;
 
