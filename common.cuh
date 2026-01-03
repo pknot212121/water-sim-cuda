@@ -54,6 +54,7 @@ constexpr float GAMMA = 7.0f;
 constexpr float COMPRESSION = 100.0f;
 constexpr float RESOLUTION = 0.3f;
 constexpr int SHARED_GRID_HEIGHT = 11;
+constexpr int SDF_RESOLUTION = 256;
 constexpr int SHARED_GRID_SIZE = SHARED_GRID_HEIGHT*SHARED_GRID_HEIGHT*SHARED_GRID_HEIGHT;
 constexpr size_t GRID_BLOCKS = (GRID_NUMBER + THREADS_PER_BLOCK-1) / THREADS_PER_BLOCK;
 
@@ -86,11 +87,16 @@ struct __align__(16) Grid
 {
     float* mass;
     float* momentum[3];
-
-    __host__ __device__ Grid(float* buffer)
+    cudaTextureObject_t tex;
+    float3 sdfBoxMin;
+    float3 sdfBoxMax;
+    __host__ __device__ Grid(float* buffer,cudaTextureObject_t tex, float3 bMin,float3 bMax)
     {
         mass = buffer + GRID_NUMBER * 0;
         for (int i=0;i<3;i++) momentum[i] = buffer + GRID_NUMBER * (i+1);
+        this->tex = tex;
+        this->sdfBoxMin = bMin;
+        this->sdfBoxMax = bMax;
     }
 };
 
@@ -98,6 +104,38 @@ struct __align__(16) Grid
 
 /* ---- GLOBAL FUNCTIONS ---- */
 #ifdef __CUDACC__
+
+__device__ inline float getSDF(float3 pPos,Grid g)
+{
+    float3 t = {
+        (pPos.x - g.sdfBoxMin.x) / (g.sdfBoxMax.x - g.sdfBoxMin.x),
+        (pPos.y - g.sdfBoxMin.y) / (g.sdfBoxMax.y - g.sdfBoxMin.y),
+        (pPos.z - g.sdfBoxMin.z) / (g.sdfBoxMax.z - g.sdfBoxMin.z)
+    };
+    //printf("BOXMIN: %f, BOXMAX: %f\n",g.sdfBoxMin.x,g.sdfBoxMax.x);
+    //printf("PPOSX: %f, PPOSY: %f,PPOSZ: %f\n",pPos.x,pPos.y,pPos.z);
+    if (t.x<0.0f || t.x>1.0f || t.y < 0.0f || t.y > 1.0f || t.z < 0.0f || t.z > 1.0f) return 10.0f;
+    float signedDist = tex3D<float>(g.tex, t.x,t.y,t.z);
+    float halfSize = (g.sdfBoxMax.x - g.sdfBoxMin.x) * 0.5f;
+    return signedDist * halfSize;
+}
+
+__device__ inline float3 calculateNormal(float3 pos,Grid g)
+{
+    float eps = 0.1f;
+    float3 normal;
+    normal.x = getSDF(make_float3(pos.x + eps, pos.y, pos.z), g) - 
+               getSDF(make_float3(pos.x - eps, pos.y, pos.z), g);
+    normal.y = getSDF(make_float3(pos.x, pos.y + eps, pos.z), g) - 
+               getSDF(make_float3(pos.x, pos.y - eps, pos.z), g);
+    normal.z = getSDF(make_float3(pos.x, pos.y, pos.z + eps), g) - 
+               getSDF(make_float3(pos.x, pos.y, pos.z - eps), g);
+    float len = sqrtf(normal.x*normal.x + normal.y*normal.y + normal.z*normal.z) + 1e-6f;
+    normal.x /= len; normal.y /= len; normal.z /= len;
+    return normal;
+}
+
+
 
 __device__ __forceinline__ float3 multiplyCxd(
         float* C, float3 d)

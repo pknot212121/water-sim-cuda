@@ -25,7 +25,6 @@ add_executable(water
 if(MSVC)
     target_compile_definitions(water PRIVATE NOMINMAX)
 
-    # Apply the standard preprocessor to both C++ and CUDA files
     target_compile_options(water PRIVATE
             $<$<COMPILE_LANGUAGE:CXX>:/Zc:preprocessor>
             $<$<COMPILE_LANGUAGE:CUDA>:-Xcompiler=/Zc:preprocessor>
@@ -50,7 +49,6 @@ target_link_libraries(water
     glm::glm
 )
 
-# Copy test.obj to build directory
 add_custom_command(TARGET water POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "${CMAKE_SOURCE_DIR}/test.obj"
