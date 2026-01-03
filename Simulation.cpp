@@ -27,8 +27,8 @@ Engine Simulation::createEngine() {
     // Wczytanie i przetworzenie kilku obiektow voxelowych
     std::vector<VoxelData> voxelObjects = {
         Prepare_object("test.obj"),
-        // Prepare_object("test.obj"),
-        // Prepare_object("test.obj")
+        Prepare_object("test.obj",2,{-50.0f,-50.0f,-50.0f}),
+        Prepare_object("test.obj",2,{50.0f,50.0f,50.0f})
     };
 
     // Scalenie wszystkich VoxelData w jeden
