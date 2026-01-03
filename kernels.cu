@@ -2,66 +2,6 @@
 #include <c++/13/cstdio>
 #include "common.cuh"
 
-__global__ void testKernel(Particles p,int number)
-{
-    const int threadIndex = blockIdx.x * blockDim.x + threadIdx.x;
-    if (threadIndex>=number) return;
-    if (p.m[threadIndex]<0.00001f) printf("Hello Mass: %f\n",p.m[threadIndex]);
-    if (p.v[threadIndex]<0.00001f) printf("Hello volume: %f\n",p.v[threadIndex]);
-}
-
-__device__ void multiply3x3(float *A,float *B,float *C)
-{
-    C[0]=A[0]*B[0] + A[1]*B[3] + A[2]*B[6];
-    C[1]=A[0]*B[1] + A[1]*B[4] + A[2]*B[7];
-    C[2]=A[0]*B[2] + A[1]*B[5] + A[2]*B[8];
-
-    C[3]=A[3]*B[0] + A[4]*B[3] + A[5]*B[6];
-    C[4]=A[3]*B[1] + A[4]*B[4] + A[5]*B[7];
-    C[5]=A[3]*B[2] + A[4]*B[5] + A[5]*B[8];
-
-    C[6]=A[6]*B[0] + A[7]*B[3] + A[8]*B[6];
-    C[7]=A[6]*B[1] + A[7]*B[4] + A[8]*B[7];
-    C[8]=A[6]*B[2] + A[7]*B[5] + A[8]*B[8];
-}
-
-__device__ void add3x3(float* A,float* B,float *C)
-{
-    for (int i=0;i<9;i++) C[i]=A[i]+B[i];
-}
-
-__device__ void multiply3x3ByConst(float a,float* B,float* C)
-{
-    for (int i=0;i<9;i++) C[i]=a*B[i];
-}
-
-__device__ __forceinline__ float det3x3(float *A)
-{
-    return A[0]*(A[4]*A[8]-A[5]*A[7]) - A[1]*(A[3]*A[8]-A[5]*A[6]) + A[2]*(A[3]*A[7] - A[4]*A[6]);
-}
-
-__device__ void calculateNewF(float *C,float *oldF,float *newF)
-{
-    float I[9] = {1.0f,0.0f,0.0f,0.0f,1.0f,0.0f,0.0f,0.0f,1.0f};
-    multiply3x3ByConst(DT,C,C);
-    add3x3(I,C,C);
-    multiply3x3(C,oldF,newF);
-}
-
-__device__ void forceC(float vP,float P,float mass,float* fC)
-{
-    float I[9] = {1.0f,0.0f,0.0f,0.0f,1.0f,0.0f,0.0f,0.0f,1.0f};
-    if (mass>0.0001)
-    {
-        multiply3x3ByConst(4.0f*DT*vP*P/mass,I,fC);
-    }
-    else
-    {
-        multiply3x3ByConst(4.0f*DT*vP*P,I,fC);
-    }
-
-}
-
 __global__ void p2GTransferScatter(Particles p,Grid g,int number,int* sortedIndices)
 {
     const int threadIndex = blockIdx.x * blockDim.x + threadIdx.x;
@@ -113,11 +53,11 @@ __global__ void p2GTransferScatter(Particles p,Grid g,int number,int* sortedIndi
     {
         float wx[3], wy[3], wz[3];
         #pragma unroll
-        for(int i=0; i<3; i++) wx[i] = g.spline(pPos.x - (posX + i));
+        for(int i=0; i<3; i++) wx[i] = spline(pPos.x - (posX + i));
         #pragma unroll
-        for(int i=0; i<3; i++) wy[i] = g.spline(pPos.y - (posY + i));
+        for(int i=0; i<3; i++) wy[i] = spline(pPos.y - (posY + i));
         #pragma unroll
-        for(int i=0; i<3; i++) wz[i] = g.spline(pPos.z - (posZ + i));
+        for(int i=0; i<3; i++) wz[i] = spline(pPos.z - (posZ + i));
 
         #pragma unroll
         for (int i=0;i<3;i++)
@@ -128,9 +68,9 @@ __global__ void p2GTransferScatter(Particles p,Grid g,int number,int* sortedIndi
                 #pragma unroll
                 for (int k=0;k<3;k++)
                 {
-                    if (g.isInBounds(posX+i,posY + j, posZ + k))
+                    if (isInBounds(posX+i,posY + j, posZ + k))
                     {
-                        size_t cellIdx = g.getGridIdx(posX + i, posY + j, posZ + k);
+                        size_t cellIdx = getGridIdx(posX + i, posY + j, posZ + k);
 
                         int dx = posX + i - minX + 1;
                         int dy = posY + j - minY + 1;
@@ -144,7 +84,7 @@ __global__ void p2GTransferScatter(Particles p,Grid g,int number,int* sortedIndi
                         float weight = wx[i] * wy[j] * wz[k];
                         float weightedMass = pM * weight;
 
-                        float3 Cxd = p.multiplyCxd(oldC, dist);
+                        float3 Cxd = multiplyCxd(oldC, dist);
                         float velX = weightedMass * (pVel.x + Cxd.x);
                         float velY = weightedMass * (pVel.y + Cxd.y);
                         float velZ = weightedMass * (pVel.z + Cxd.z);
@@ -176,9 +116,9 @@ __global__ void p2GTransferScatter(Particles p,Grid g,int number,int* sortedIndi
         int gx = minX + (i % SHARED_GRID_HEIGHT)-1;
         int gy = minY + (i / SHARED_GRID_HEIGHT) % SHARED_GRID_HEIGHT-1;
         int gz = minZ + i / (SHARED_GRID_HEIGHT * SHARED_GRID_HEIGHT)-1;
-        if (g.isInBounds(gx,gy,gz))
+        if (isInBounds(gx,gy,gz))
         {
-            size_t gIdx = g.getGridIdx(gx, gy, gz);
+            size_t gIdx = getGridIdx(gx, gy, gz);
             if (shMass[i]>1e-9)
             {
                 atomicAdd(&g.mass[gIdx],shMass[i]);
@@ -189,98 +129,6 @@ __global__ void p2GTransferScatter(Particles p,Grid g,int number,int* sortedIndi
         }
     }
 
-}
-
-
-
-
-__global__ void g2PTransfer(Particles p, Grid g,int number,int *sortedIndices)
-{
-    const int threadIndex = blockIdx.x * blockDim.x + threadIdx.x;
-    if (threadIndex>=number) return;
-    const int particleIdx = __ldg(&sortedIndices[threadIndex]);
-    const int posX = (int)(p.pos[0][particleIdx]-0.5f);
-    const int posY = (int)(p.pos[1][particleIdx]-0.5f);
-    const int posZ = (int)(p.pos[2][particleIdx]-0.5f);
-    const float3 pPos = {p.pos[0][particleIdx],p.pos[1][particleIdx],p.pos[2][particleIdx]};
-
-    float3 totalVel = {0.0f,0.0f,0.0f};
-    float totalC[9] = {0,0,0,0,0,0,0,0,0};
-    float wx[3], wy[3], wz[3];
-    #pragma unroll
-    for(int i=0; i<3; i++) wx[i] = g.spline(pPos.x - (posX + i));
-    #pragma unroll
-    for(int i=0; i<3; i++) wy[i] = g.spline(pPos.y - (posY + i));
-    #pragma unroll
-    for(int i=0; i<3; i++) wz[i] = g.spline(pPos.z - (posZ + i));
-
-    #pragma unroll
-    for (int i=0;i<3;i++)
-    {
-        #pragma unroll
-        for (int j=0;j<3;j++)
-        {
-            #pragma unroll
-            for (int k=0;k<3;k++)
-            {
-                if (g.isInBounds(posX+i,posY + j, posZ + k))
-                {
-                    size_t cellIdx = g.getGridIdx(posX + i, posY + j, posZ + k);
-                    float3 d = {pPos.x - (float)(posX + i), pPos.y - (float)(posY + j), pPos.z - (float)(posZ + k)};
-                    float weight = wx[i]*wy[j]*wz[k];
-
-
-
-                    totalVel.x += weight * g.momentum[0][cellIdx];
-                    totalVel.y += weight * g.momentum[1][cellIdx];
-                    totalVel.z += weight * g.momentum[2][cellIdx];
-
-                    float3 dist = {-d.x,-d.y,-d.z};
-                    float term = 4.0f * weight;
-                    totalC[0] += term * g.momentum[0][cellIdx] * dist.x;
-                    totalC[1] += term * g.momentum[0][cellIdx] * dist.y;
-                    totalC[2] += term * g.momentum[0][cellIdx] * dist.z;
-                    totalC[3] += term * g.momentum[1][cellIdx] * dist.x;
-                    totalC[4] += term * g.momentum[1][cellIdx] * dist.y;
-                    totalC[5] += term * g.momentum[1][cellIdx] * dist.z;
-                    totalC[6] += term * g.momentum[2][cellIdx] * dist.x;
-                    totalC[7] += term * g.momentum[2][cellIdx] * dist.y;
-                    totalC[8] += term * g.momentum[2][cellIdx] * dist.z;
-                }
-            }
-        }
-    }
-
-    float oldF[9];
-    #pragma unroll
-    for (int i=0;i<9;i++) oldF[i]=p.f[i][particleIdx];
-
-
-    float newF[9]; float fC[9]; float tempC[9];
-    for (int i=0;i<9;i++) tempC[i]=totalC[i];
-    calculateNewF(tempC,oldF,newF);
-    float J = det3x3(newF);
-    J = fmaxf(0.1f, fminf(J, 100.0f));
-    // float J_third = powf(J, 1.0f/3.0f);
-
-    p.vel[0][particleIdx] = totalVel.x;
-    p.vel[1][particleIdx] = totalVel.y;
-    p.vel[2][particleIdx] = totalVel.z;
-
-    p.pos[0][particleIdx] += totalVel.x * DT;
-    p.pos[1][particleIdx] += totalVel.y * DT;
-    p.pos[2][particleIdx] += totalVel.z * DT;
-    for (int i=0;i<9;i++) p.c[i][particleIdx] = totalC[i];
-    for (int i=0;i<9;i++) p.c[i][particleIdx] = newF[i];
-}
-
-__global__ void emptyGrid(Grid g)
-{
-    const int threadIndex = blockIdx.x * blockDim.x + threadIdx.x;
-    g.mass[threadIndex] = 0.0f;
-    g.momentum[0][threadIndex] = 0.0f;
-    g.momentum[1][threadIndex] = 0.0f;
-    g.momentum[2][threadIndex] = 0.0f;
 }
 
 __global__ void gridUpdate(Grid g)
@@ -318,9 +166,107 @@ __global__ void gridUpdate(Grid g)
     }
 }
 
+
+__global__ void g2PTransfer(Particles p, Grid g,int number,int *sortedIndices)
+{
+    const int threadIndex = blockIdx.x * blockDim.x + threadIdx.x;
+    if (threadIndex>=number) return;
+    const int particleIdx = __ldg(&sortedIndices[threadIndex]);
+    const int posX = (int)(p.pos[0][particleIdx]-0.5f);
+    const int posY = (int)(p.pos[1][particleIdx]-0.5f);
+    const int posZ = (int)(p.pos[2][particleIdx]-0.5f);
+    const float3 pPos = {p.pos[0][particleIdx],p.pos[1][particleIdx],p.pos[2][particleIdx]};
+
+    float3 totalVel = {0.0f,0.0f,0.0f};
+    float totalC[9] = {0,0,0,0,0,0,0,0,0};
+    float wx[3], wy[3], wz[3];
+    #pragma unroll
+    for(int i=0; i<3; i++) wx[i] = spline(pPos.x - (posX + i));
+    #pragma unroll
+    for(int i=0; i<3; i++) wy[i] = spline(pPos.y - (posY + i));
+    #pragma unroll
+    for(int i=0; i<3; i++) wz[i] = spline(pPos.z - (posZ + i));
+
+    #pragma unroll
+    for (int i=0;i<3;i++)
+    {
+        #pragma unroll
+        for (int j=0;j<3;j++)
+        {
+            #pragma unroll
+            for (int k=0;k<3;k++)
+            {
+                if (isInBounds(posX+i,posY + j, posZ + k))
+                {
+                    size_t cellIdx = getGridIdx(posX + i, posY + j, posZ + k);
+                    float3 d = {pPos.x - (float)(posX + i), pPos.y - (float)(posY + j), pPos.z - (float)(posZ + k)};
+                    float weight = wx[i]*wy[j]*wz[k];
+
+
+
+                    totalVel.x += weight * g.momentum[0][cellIdx];
+                    totalVel.y += weight * g.momentum[1][cellIdx];
+                    totalVel.z += weight * g.momentum[2][cellIdx];
+
+                    float3 dist = {-d.x,-d.y,-d.z};
+                    float term = 4.0f * weight;
+                    totalC[0] += term * g.momentum[0][cellIdx] * dist.x;
+                    totalC[1] += term * g.momentum[0][cellIdx] * dist.y;
+                    totalC[2] += term * g.momentum[0][cellIdx] * dist.z;
+                    totalC[3] += term * g.momentum[1][cellIdx] * dist.x;
+                    totalC[4] += term * g.momentum[1][cellIdx] * dist.y;
+                    totalC[5] += term * g.momentum[1][cellIdx] * dist.z;
+                    totalC[6] += term * g.momentum[2][cellIdx] * dist.x;
+                    totalC[7] += term * g.momentum[2][cellIdx] * dist.y;
+                    totalC[8] += term * g.momentum[2][cellIdx] * dist.z;
+                }
+            }
+        }
+    }
+
+    float oldF[9];
+    #pragma unroll
+    for (int i=0;i<9;i++) oldF[i]=p.f[i][particleIdx];
+
+
+    float newF[9]; float tempC[9];
+    for (int i=0;i<9;i++) tempC[i]=totalC[i];
+    calculateNewF(tempC,oldF,newF);
+    float J = det3x3(newF);
+    J = fmaxf(0.1f, fminf(J, 100.0f));
+
+    p.vel[0][particleIdx] = totalVel.x;
+    p.vel[1][particleIdx] = totalVel.y;
+    p.vel[2][particleIdx] = totalVel.z;
+
+    p.pos[0][particleIdx] += totalVel.x * DT;
+    p.pos[1][particleIdx] += totalVel.y * DT;
+    p.pos[2][particleIdx] += totalVel.z * DT;
+    for (int i=0;i<9;i++) p.c[i][particleIdx] = totalC[i];
+    for (int i=0;i<9;i++) p.c[i][particleIdx] = newF[i];
+}
+
+__global__ void testKernel(Particles p,int number)
+{
+    const int threadIndex = blockIdx.x * blockDim.x + threadIdx.x;
+    if (threadIndex>=number) return;
+    if (p.m[threadIndex]<0.00001f) printf("Hello Mass: %f\n",p.m[threadIndex]);
+    if (p.v[threadIndex]<0.00001f) printf("Hello volume: %f\n",p.v[threadIndex]);
+}
+
+__global__ void emptyGrid(Grid g)
+{
+    const int threadIndex = blockIdx.x * blockDim.x + threadIdx.x;
+    g.mass[threadIndex] = 0.0f;
+    g.momentum[0][threadIndex] = 0.0f;
+    g.momentum[1][threadIndex] = 0.0f;
+    g.momentum[2][threadIndex] = 0.0f;
+}
+
+
 __global__ void gridTest(Grid g,int targetX, int targetY, int targetZ)
 {
-    size_t idx = g.getGridIdx(targetX,targetY,targetZ);
+    size_t idx = getGridIdx(targetX,targetY,targetZ);
     g.mass[idx] = 2137.0f;
 }
 
@@ -336,21 +282,6 @@ __global__ void sortedTest(int *sorted)
 {
     const int threadIndex = blockIdx.x * blockDim.x + threadIdx.x;
     if (sorted[threadIndex]!=0) printf("Hello Sorted: %u\n",sorted[threadIndex]);
-}
-
-__device__ unsigned int expandBits(unsigned int v)
-{
-    v = (v * 0x00010001u) & 0xFF0000FFu;
-    v = (v * 0x00000101u) & 0x0F00F00Fu;
-    v = (v * 0x00000011u) & 0xC30C30C3u;
-    v = (v * 0x00000005u) & 0x49249249u;
-    return v;
-}
-
-
-__device__ unsigned int calculateMorton(unsigned int x, unsigned int y, unsigned int z)
-{
-    return (expandBits(z) << 2) | (expandBits(y) << 1) | expandBits(x);
 }
 
 __global__ void changeFormat(Particles p,float3 *buf,int number)

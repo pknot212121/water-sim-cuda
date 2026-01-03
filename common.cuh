@@ -58,6 +58,7 @@ constexpr int SHARED_GRID_SIZE = SHARED_GRID_HEIGHT*SHARED_GRID_HEIGHT*SHARED_GR
 constexpr size_t GRID_BLOCKS = (GRID_NUMBER + THREADS_PER_BLOCK-1) / THREADS_PER_BLOCK;
 
 
+/* ---- GLOBAL STRUCTURES ---- */
 struct __align__(16) Particles
 {
     float* pos[3];
@@ -79,24 +80,6 @@ struct __align__(16) Particles
         m = buffer + n * MASS;
     }
 
-    __device__ __forceinline__ float3 multiplyCxd(
-        float* C, float3 d)
-    {
-        return float3(
-            C[0]*d.x+C[1]*d.y+C[2]*d.z,
-            C[3]*d.x+C[4]*d.y+C[5]*d.z,
-            C[6]*d.x+C[7]*d.y+C[8]*d.z);
-    }
-
-    __device__ inline unsigned int expandBits(unsigned int v)
-    {
-        v = v & 0x000003FF;
-        v = (v | (v << 16)) & 0x030000FF;
-        v = (v | (v << 8)) & 0x0300F00F;
-        v = (v | (v << 4)) & 0x030C30C3;
-        v = (v | (v << 2)) & 0x09249249;
-        return v;
-    }
 };
 
 struct __align__(16) Grid
@@ -109,30 +92,113 @@ struct __align__(16) Grid
         mass = buffer + GRID_NUMBER * 0;
         for (int i=0;i<3;i++) momentum[i] = buffer + GRID_NUMBER * (i+1);
     }
-
-    __host__ __device__ int getGridIdx(int x,int y,int z)
-    {
-        return z * SIZE_X*SIZE_Y + y * SIZE_X + x;
-    }
-
-    __host__ __device__ float spline(float x)
-    {
-        if (fabsf(x)<0.5) return 0.75-x*x;
-        if (fabsf(x)>=0.5 && fabsf(x)<1.5) return (1.5-fabsf(x))*(1.5-fabsf(x))*0.5;
-        return 0.0f;
-    }
-
-    __host__ __device__ bool isInBounds(int x,int y,int z)
-    {
-        if (x<0 || x>=SIZE_X) return false;
-        if (y<0 || y>=SIZE_Y) return false;
-        if (z<0 || z>=SIZE_Z) return false;
-        return true;
-    }
-
-
-
 };
+
+
+
+/* ---- GLOBAL FUNCTIONS ---- */
+#ifdef __CUDACC__
+
+__device__ __forceinline__ float3 multiplyCxd(
+        float* C, float3 d)
+{
+    return float3(
+        C[0]*d.x+C[1]*d.y+C[2]*d.z,
+        C[3]*d.x+C[4]*d.y+C[5]*d.z,
+        C[6]*d.x+C[7]*d.y+C[8]*d.z);
+}
+
+
+__host__ __device__ inline int getGridIdx(int x,int y,int z)
+{
+    return z * SIZE_X*SIZE_Y + y * SIZE_X + x;
+}
+
+__host__ __device__ inline float spline(float x)
+{
+    if (fabsf(x)<0.5) return 0.75-x*x;
+    if (fabsf(x)>=0.5 && fabsf(x)<1.5) return (1.5-fabsf(x))*(1.5-fabsf(x))*0.5;
+    return 0.0f;
+}
+
+__host__ __device__ inline bool isInBounds(int x,int y,int z)
+{
+    if (x<0 || x>=SIZE_X) return false;
+    if (y<0 || y>=SIZE_Y) return false;
+    if (z<0 || z>=SIZE_Z) return false;
+    return true;
+}
+
+__device__ inline void multiply3x3(float *A,float *B,float *C)
+{
+    C[0]=A[0]*B[0] + A[1]*B[3] + A[2]*B[6];
+    C[1]=A[0]*B[1] + A[1]*B[4] + A[2]*B[7];
+    C[2]=A[0]*B[2] + A[1]*B[5] + A[2]*B[8];
+
+    C[3]=A[3]*B[0] + A[4]*B[3] + A[5]*B[6];
+    C[4]=A[3]*B[1] + A[4]*B[4] + A[5]*B[7];
+    C[5]=A[3]*B[2] + A[4]*B[5] + A[5]*B[8];
+
+    C[6]=A[6]*B[0] + A[7]*B[3] + A[8]*B[6];
+    C[7]=A[6]*B[1] + A[7]*B[4] + A[8]*B[7];
+    C[8]=A[6]*B[2] + A[7]*B[5] + A[8]*B[8];
+}
+
+__device__ inline void add3x3(float* A,float* B,float *C)
+{
+    for (int i=0;i<9;i++) C[i]=A[i]+B[i];
+}
+
+__device__ inline void multiply3x3ByConst(float a,float* B,float* C)
+{
+    for (int i=0;i<9;i++) C[i]=a*B[i];
+}
+
+__device__ __forceinline__ float det3x3(float *A)
+{
+    return A[0]*(A[4]*A[8]-A[5]*A[7]) - A[1]*(A[3]*A[8]-A[5]*A[6]) + A[2]*(A[3]*A[7] - A[4]*A[6]);
+}
+
+__device__ inline void calculateNewF(float *C,float *oldF,float *newF)
+{
+    float I[9] = {1.0f,0.0f,0.0f,0.0f,1.0f,0.0f,0.0f,0.0f,1.0f};
+    multiply3x3ByConst(DT,C,C);
+    add3x3(I,C,C);
+    multiply3x3(C,oldF,newF);
+}
+
+__device__ inline void forceC(float vP,float P,float mass,float* fC)
+{
+    float I[9] = {1.0f,0.0f,0.0f,0.0f,1.0f,0.0f,0.0f,0.0f,1.0f};
+    if (mass>0.0001)
+    {
+        multiply3x3ByConst(4.0f*DT*vP*P/mass,I,fC);
+    }
+    else
+    {
+        multiply3x3ByConst(4.0f*DT*vP*P,I,fC);
+    }
+
+}
+
+__device__ inline unsigned int expandBits(unsigned int v)
+{
+    v = (v * 0x00010001u) & 0xFF0000FFu;
+    v = (v * 0x00000101u) & 0x0F00F00Fu;
+    v = (v * 0x00000011u) & 0xC30C30C3u;
+    v = (v * 0x00000005u) & 0x49249249u;
+    return v;
+}
+
+
+__device__ inline unsigned int calculateMorton(unsigned int x, unsigned int y, unsigned int z)
+{
+    return (expandBits(z) << 2) | (expandBits(y) << 1) | expandBits(x);
+}
+
+
+#endif
+
 
 
 
