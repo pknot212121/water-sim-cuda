@@ -29,11 +29,13 @@ __global__ void p2GTransferScatter(Particles p,Grid g,int number,int* sortedIndi
     #pragma unroll
     for(int i=0; i<9; i++) oldF[i] = p.f[i][particleIdx];
     float J = det3x3(oldF);
-    J = fmaxf(0.1f, fminf(J, 100.0f));
-    float pressure = COMPRESSION * (J - 1.0f);
+    J = fmaxf(0.1f, fminf(J, 1.1f));
+    float pressure = COMPRESSION * (powf(J,GAMMA) - 1.0f);
     float volume = p.v[particleIdx] * J;
     float stressTerm[9] = {1.0f,0.0f,0.0f,0.0f,1.0f,0.0f,0.0f,0.0f,1.0f};
-    multiply3x3ByConst(4.0f * DT * volume * pressure / pM,stressTerm,stressTerm);
+
+    float multi = 4.0f * DT * volume * pressure / pM;
+    multiply3x3ByConst(multi,stressTerm,stressTerm);
     add3x3(oldC,stressTerm,oldC);
 
     __shared__ float shMass[SHARED_GRID_SIZE];
@@ -181,20 +183,20 @@ __global__ void g2PTransfer(Particles p, Grid g,int number,int *sortedIndices)
     float3 totalVel = {0.0f,0.0f,0.0f};
     float totalC[9] = {0,0,0,0,0,0,0,0,0};
     float wx[3], wy[3], wz[3];
-    #pragma unroll
+#pragma unroll
     for(int i=0; i<3; i++) wx[i] = spline(pPos.x - (posX + i));
-    #pragma unroll
+#pragma unroll
     for(int i=0; i<3; i++) wy[i] = spline(pPos.y - (posY + i));
-    #pragma unroll
+#pragma unroll
     for(int i=0; i<3; i++) wz[i] = spline(pPos.z - (posZ + i));
 
-    #pragma unroll
+#pragma unroll
     for (int i=0;i<3;i++)
     {
-        #pragma unroll
+#pragma unroll
         for (int j=0;j<3;j++)
         {
-            #pragma unroll
+#pragma unroll
             for (int k=0;k<3;k++)
             {
                 if (isInBounds(posX+i,posY + j, posZ + k))
@@ -226,7 +228,7 @@ __global__ void g2PTransfer(Particles p, Grid g,int number,int *sortedIndices)
     }
 
     float oldF[9];
-    #pragma unroll
+#pragma unroll
     for (int i=0;i<9;i++) oldF[i]=p.f[i][particleIdx];
 
 
@@ -234,8 +236,10 @@ __global__ void g2PTransfer(Particles p, Grid g,int number,int *sortedIndices)
     for (int i=0;i<9;i++) tempC[i]=totalC[i];
     calculateNewF(tempC,oldF,newF);
     float J = det3x3(newF);
-    J = fmaxf(0.1f, fminf(J, 100.0f));
-
+    if (J < 0.3f) {
+        float scale = powf(0.3f / J, 1.0f/3.0f);
+        for(int i=0; i<9; i++) newF[i] *= scale;
+    }
 
     float3 nextPos = {
         p.pos[0][particleIdx] + totalVel.x * DT,
@@ -244,7 +248,6 @@ __global__ void g2PTransfer(Particles p, Grid g,int number,int *sortedIndices)
     };
 
     float dist = getSDF(nextPos,g);
-    printf("DIST: %f\n",dist);
     if (dist < 0.0f)
     {
         float3 normal = calculateNormal(nextPos,g);
@@ -268,7 +271,7 @@ __global__ void g2PTransfer(Particles p, Grid g,int number,int *sortedIndices)
     p.pos[1][particleIdx] = nextPos.y;
     p.pos[2][particleIdx] = nextPos.z;
     for (int i=0;i<9;i++) p.c[i][particleIdx] = totalC[i];
-    for (int i=0;i<9;i++) p.c[i][particleIdx] = newF[i];
+    for (int i=0;i<9;i++) p.f[i][particleIdx] = newF[i];
 }
 
 __global__ void testKernel(Particles p,int number)
