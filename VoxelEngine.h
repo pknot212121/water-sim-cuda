@@ -29,6 +29,11 @@ struct VoxelData
     }
 };
 
+struct Triangle
+{
+    float3 v0, v1, v2;
+};
+
 class VoxelEngine
 {
 public:
@@ -41,6 +46,11 @@ public:
     // Normalize, scale and displace voxel data
     void normalize(VoxelData& data, float normalizeSize, float scale, const float3& displacement);
 
+    // Normalize, scale and displace triangle data
+    void normalize(std::vector<Triangle>& triangles, float normalizeSize, float scale, const float3& displacement);
+
+    std::vector<Triangle> extractTriangles(const ObjData& objData);
+
 private:
     struct BoundingBox
     {
@@ -48,14 +58,9 @@ private:
         float3 max;
     };
 
-    struct Triangle
-    {
-        float3 v0, v1, v2;
-    };
-
     // Helper functions
     BoundingBox calculateBoundingBox(const ObjData& objData);
-    std::vector<Triangle> extractTriangles(const ObjData& objData);
+
     bool triangleBoxIntersection(const Triangle& tri, const float3& boxCenter, float halfSize);
     bool triangleAABBIntersection(const Triangle& tri, const float3& boxMin, const float3& boxMax);
 
