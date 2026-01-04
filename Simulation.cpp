@@ -27,8 +27,8 @@ Engine Simulation::createEngine() {
     // Wczytanie i przetworzenie kilku obiektow voxelowych
     std::vector<VoxelData> voxelObjects = {
         Prepare_object("test.obj"),
-        Prepare_object("test.obj",2,{-50.0f,-50.0f,-50.0f}),
-        Prepare_object("test.obj",2,{50.0f,50.0f,50.0f})
+        Prepare_object("test.obj",2,{-10.0f,-10.0f,-10.0f}),
+        Prepare_object("test.obj",2,{10.0f,10.0f,10.0f})
     };
 
     // Scalenie wszystkich VoxelData w jeden
@@ -41,16 +41,16 @@ Engine Simulation::createEngine() {
     float* h_buffer = new float[bufferSize]();
     std::copy(combinedResult.begin(), combinedResult.end(), h_buffer);
 
-    // Wczytanie kilka obiektow kolizyjnych
-    // std::vector<std::vector<Triangle>> triangleObjects = {
-    //     Prepare_triangles("pipes.obj"),
-    //     Prepare_triangles("pipes.obj"),
-    //     Prepare_triangles("pipes.obj"),
-    //     Prepare_triangles("pipes.obj")
-    // };
-    //
-    // // Scalenie wszystkich trójkątów w jeden wektor
-    // std::vector<Triangle> allTriangles = MergeTriangles(triangleObjects);
+    //Wczytanie kilka obiektow kolizyjnych
+    std::vector<std::vector<Triangle>> triangleObjects = {
+        Prepare_triangles("pipes.obj"),
+        // Prepare_triangles("pipes.obj"),
+        // Prepare_triangles("pipes.obj"),
+        // Prepare_triangles("pipes.obj")
+    };
+
+    // Scalenie wszystkich trójkątów w jeden wektor
+    std::vector<Triangle> allTriangles = MergeTriangles(triangleObjects);
 
     return Engine(bufferSize / 26, h_buffer);
 }

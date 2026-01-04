@@ -121,10 +121,10 @@ std::vector<float> loadSDF(const std::string& filename, int res) {
 
 void Engine::initSDF()
 {
-    float sdfSize = 10.0f;
+    float sdfSize = 100.0f;
     float3 sdfOffset = {0.0f,0.0f,0.0f};
 
-    std::vector<float> h_sdfData = loadSDF("sdf_creator/model_pcu.sdf",SDF_RESOLUTION);
+    std::vector<float> h_sdfData = loadSDF("sdf_creator/model_cup.sdf",SDF_RESOLUTION);
     if (h_sdfData.size() < (size_t)SDF_RESOLUTION * SDF_RESOLUTION * SDF_RESOLUTION) {
         std::cerr << "ERROR: SDF RESOLUTION IS NOT EQUAL TO THE PARAMETER IN COMMON.CUH" << std::endl;
         exit(1);
