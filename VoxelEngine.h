@@ -48,6 +48,9 @@ public:
     // Normalize, scale and displace voxel data
     void normalize(VoxelData& data, float normalizeSize, float scale, const float3& displacement);
 
+    // Expand voxels - create 5x5x5 grid around each voxel (for thickening)
+    void expandVoxels(VoxelData& data, int expansionRadius = 2);
+
     // Normalize, scale and displace triangle data
     void normalize(std::vector<Triangle>& triangles, float normalizeSize, float scale, const float3& displacement);
 

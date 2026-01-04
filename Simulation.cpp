@@ -45,7 +45,7 @@ Engine Simulation::createEngine() {
     VoxelData combinedVoxelData = MergeVoxelData(voxelObjects);
 
     // Wywołanie process tylko raz na scalonych danych
-    std::vector<float> combinedResult = voxelPipeline.process(combinedVoxelData, RESOLUTION);
+    std::vector<float> combinedResult = voxelPipeline.process(combinedVoxelData);
 
     size_t bufferSize = combinedResult.size();
     float* h_buffer = new float[bufferSize]();

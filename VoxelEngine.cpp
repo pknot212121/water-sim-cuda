@@ -2,6 +2,10 @@
 #include <iostream>
 #include <cmath>
 #include <algorithm>
+#include <set>
+#include <tuple>
+
+#include "common.cuh"
 
 // VoxelData implementation
 VoxelData::VoxelData() : count(0), resolution(0.0f)
@@ -113,6 +117,7 @@ VoxelData::~VoxelData()
     if (pos[1]) delete[] pos[1];
     if (pos[2]) delete[] pos[2];
 }
+
 
 // VoxelEngine implementation
 VoxelData VoxelEngine::voxelize(const ObjData& objData, float resolution)
@@ -445,7 +450,236 @@ void VoxelEngine::normalize(VoxelData& data, float normalizeSize, float scale, c
         std::cout << "  Warning: All voxels were removed!" << std::endl;
     }
 
+    // Step 7: Snap voxels to discrete grid with resolution 0.1 AND expand to neighbors
+    std::cout << "  Snapping voxels to discrete grid (0.1 resolution) with 5x5x5 expansion..." << std::endl;
+
+    const float gridResolution = 0.1f;
+    int maxGridIndex = (int)(normalizeSize / gridResolution);
+    const int expansionRadius = 2; // Will create 5 voxels per dimension (-2, -1, 0, +1, +2)
+
+    // Use a set to store unique grid positions (to remove duplicates)
+    std::set<std::tuple<int, int, int>> uniqueGridPositions;
+
+    for (size_t i = 0; i < data.count; i++)
+    {
+        // Round each coordinate to nearest grid position
+        int gridX = (int)std::round(data.pos[0][i] / gridResolution);
+        int gridY = (int)std::round(data.pos[1][i] / gridResolution);
+        int gridZ = (int)std::round(data.pos[2][i] / gridResolution);
+
+        // Clamp to valid range [0, maxGridIndex]
+        gridX = std::max(0, std::min(maxGridIndex, gridX));
+        gridY = std::max(0, std::min(maxGridIndex, gridY));
+        gridZ = std::max(0, std::min(maxGridIndex, gridZ));
+
+        // Generate 5x5x5 voxels around the snapped position
+        for (int dx = -expansionRadius; dx <= expansionRadius; dx++)
+        {
+            for (int dy = -expansionRadius; dy <= expansionRadius; dy++)
+            {
+                for (int dz = -expansionRadius; dz <= expansionRadius; dz++)
+                {
+                    int newX = gridX + dx;
+                    int newY = gridY + dy;
+                    int newZ = gridZ + dz;
+
+                    // Clamp to valid range
+                    if (newX >= 0 && newX <= maxGridIndex &&
+                        newY >= 0 && newY <= maxGridIndex &&
+                        newZ >= 0 && newZ <= maxGridIndex)
+                    {
+                        uniqueGridPositions.insert(std::make_tuple(newX, newY, newZ));
+                    }
+                }
+            }
+        }
+    }
+
+    std::cout << "  Original voxel count: " << data.count << std::endl;
+    std::cout << "  After 5x5x5 expansion: " << uniqueGridPositions.size() << " unique grid positions" << std::endl;
+    std::cout << "  Expansion factor: " << ((float)uniqueGridPositions.size() / data.count) << "x" << std::endl;
+
+    // Convert back to arrays
+    std::vector<float> snappedX, snappedY, snappedZ;
+    for (const auto& gridPos : uniqueGridPositions)
+    {
+        snappedX.push_back(std::get<0>(gridPos) * gridResolution);
+        snappedY.push_back(std::get<1>(gridPos) * gridResolution);
+        snappedZ.push_back(std::get<2>(gridPos) * gridResolution);
+    }
+
+    // Replace data with snapped voxels
+    delete[] data.pos[0];
+    delete[] data.pos[1];
+    delete[] data.pos[2];
+
+    data.count = snappedX.size();
+    if (data.count > 0)
+    {
+        data.pos[0] = new float[data.count];
+        data.pos[1] = new float[data.count];
+        data.pos[2] = new float[data.count];
+
+        std::copy(snappedX.begin(), snappedX.end(), data.pos[0]);
+        std::copy(snappedY.begin(), snappedY.end(), data.pos[1]);
+        std::copy(snappedZ.begin(), snappedZ.end(), data.pos[2]);
+
+        // Update bounding box after snapping
+        minX = maxX = data.pos[0][0];
+        minY = maxY = data.pos[1][0];
+        minZ = maxZ = data.pos[2][0];
+
+        for (size_t i = 0; i < data.count; i++)
+        {
+            minX = std::min(minX, data.pos[0][i]);
+            maxX = std::max(maxX, data.pos[0][i]);
+            minY = std::min(minY, data.pos[1][i]);
+            maxY = std::max(maxY, data.pos[1][i]);
+            minZ = std::min(minZ, data.pos[2][i]);
+            maxZ = std::max(maxZ, data.pos[2][i]);
+        }
+
+        data.boundingBoxMin = {minX, minY, minZ};
+        data.boundingBoxMax = {maxX, maxY, maxZ};
+
+        std::cout << "  Final snapped bounds: (" << minX << ", " << minY << ", " << minZ << ") to ("
+                  << maxX << ", " << maxY << ", " << maxZ << ")" << std::endl;
+
+        // Print sample voxels to verify grid snapping
+        std::cout << "\n  Sample voxels after grid snapping:" << std::endl;
+        size_t samplesToShow = std::min((size_t)10, data.count);
+        for (size_t i = 0; i < samplesToShow; i++)
+        {
+            std::cout << "    Voxel " << i << ": ("
+                      << data.pos[0][i] << ", "
+                      << data.pos[1][i] << ", "
+                      << data.pos[2][i] << ")" << std::endl;
+        }
+        if (data.count > samplesToShow)
+        {
+            std::cout << "    ... and " << (data.count - samplesToShow) << " more voxels" << std::endl;
+        }
+    }
+    else
+    {
+        data.pos[0] = nullptr;
+        data.pos[1] = nullptr;
+        data.pos[2] = nullptr;
+    }
+
     std::cout << "Normalization complete!" << std::endl;
+}
+
+void VoxelEngine::expandVoxels(VoxelData& data, int expansionRadius)
+{
+    if (data.count == 0)
+    {
+        std::cerr << "VoxelEngine::expandVoxels: No voxels to expand" << std::endl;
+        return;
+    }
+
+    std::cout << "Expanding voxels with radius " << expansionRadius
+              << " (" << (2*expansionRadius+1) << "x" << (2*expansionRadius+1) << "x" << (2*expansionRadius+1)
+              << " per voxel)..." << std::endl;
+
+    const float gridResolution = 0.1f;
+    int maxGridIndex = (int)(SIZE_X * 10); // Maximum grid index for SIZE_X range
+
+    // Use a set to store unique grid positions
+    std::set<std::tuple<int, int, int>> uniqueGridPositions;
+
+    for (size_t i = 0; i < data.count; i++)
+    {
+        // Convert current position to grid indices
+        int gridX = (int)std::round(data.pos[0][i] / gridResolution);
+        int gridY = (int)std::round(data.pos[1][i] / gridResolution);
+        int gridZ = (int)std::round(data.pos[2][i] / gridResolution);
+
+        // Generate (2*radius+1)^3 voxels around this position
+        for (int dx = -expansionRadius; dx <= expansionRadius; dx++)
+        {
+            for (int dy = -expansionRadius; dy <= expansionRadius; dy++)
+            {
+                for (int dz = -expansionRadius; dz <= expansionRadius; dz++)
+                {
+                    int newX = gridX + dx;
+                    int newY = gridY + dy;
+                    int newZ = gridZ + dz;
+
+                    // Clamp to valid range [0, maxGridIndex]
+                    if (newX >= 0 && newX <= maxGridIndex &&
+                        newY >= 0 && newY <= maxGridIndex &&
+                        newZ >= 0 && newZ <= maxGridIndex)
+                    {
+                        uniqueGridPositions.insert(std::make_tuple(newX, newY, newZ));
+                    }
+                }
+            }
+        }
+    }
+
+    std::cout << "  Original voxel count: " << data.count << std::endl;
+    std::cout << "  Expanded voxel count: " << uniqueGridPositions.size() << std::endl;
+    std::cout << "  Expansion factor: " << (float)uniqueGridPositions.size() / data.count << "x" << std::endl;
+
+    // Convert back to arrays
+    std::vector<float> expandedX, expandedY, expandedZ;
+    expandedX.reserve(uniqueGridPositions.size());
+    expandedY.reserve(uniqueGridPositions.size());
+    expandedZ.reserve(uniqueGridPositions.size());
+
+    for (const auto& gridPos : uniqueGridPositions)
+    {
+        expandedX.push_back(std::get<0>(gridPos) * gridResolution);
+        expandedY.push_back(std::get<1>(gridPos) * gridResolution);
+        expandedZ.push_back(std::get<2>(gridPos) * gridResolution);
+    }
+
+    // Replace data with expanded voxels
+    delete[] data.pos[0];
+    delete[] data.pos[1];
+    delete[] data.pos[2];
+
+    data.count = expandedX.size();
+    if (data.count > 0)
+    {
+        data.pos[0] = new float[data.count];
+        data.pos[1] = new float[data.count];
+        data.pos[2] = new float[data.count];
+
+        std::copy(expandedX.begin(), expandedX.end(), data.pos[0]);
+        std::copy(expandedY.begin(), expandedY.end(), data.pos[1]);
+        std::copy(expandedZ.begin(), expandedZ.end(), data.pos[2]);
+
+        // Update bounding box
+        float minX = data.pos[0][0], maxX = data.pos[0][0];
+        float minY = data.pos[1][0], maxY = data.pos[1][0];
+        float minZ = data.pos[2][0], maxZ = data.pos[2][0];
+
+        for (size_t i = 1; i < data.count; i++)
+        {
+            minX = std::min(minX, data.pos[0][i]);
+            maxX = std::max(maxX, data.pos[0][i]);
+            minY = std::min(minY, data.pos[1][i]);
+            maxY = std::max(maxY, data.pos[1][i]);
+            minZ = std::min(minZ, data.pos[2][i]);
+            maxZ = std::max(maxZ, data.pos[2][i]);
+        }
+
+        data.boundingBoxMin = {minX, minY, minZ};
+        data.boundingBoxMax = {maxX, maxY, maxZ};
+
+        std::cout << "  Expanded bounds: (" << minX << ", " << minY << ", " << minZ << ") to ("
+                  << maxX << ", " << maxY << ", " << maxZ << ")" << std::endl;
+    }
+    else
+    {
+        data.pos[0] = nullptr;
+        data.pos[1] = nullptr;
+        data.pos[2] = nullptr;
+    }
+
+    std::cout << "Expansion complete!" << std::endl;
 }
 
 void VoxelEngine::normalize(std::vector<Triangle>& triangles, float normalizeSize, float scale, const float3& displacement)
@@ -835,4 +1069,5 @@ float VoxelEngine::max3(float a, float b, float c)
 {
     return std::max(std::max(a, b), c);
 }
+
 

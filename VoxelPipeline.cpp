@@ -2,7 +2,7 @@
 
 #include <iostream>
 
-std::vector<float> VoxelPipeline::process(const VoxelData& voxelData,float resolution)
+std::vector<float> VoxelPipeline::process(const VoxelData& voxelData)
 {
     std::cout << "VoxelPipeline::process called with " << voxelData.count << " voxels" << std::endl;
     std::vector<float> result = {};

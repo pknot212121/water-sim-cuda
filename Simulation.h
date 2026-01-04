@@ -15,7 +15,6 @@ class Simulation {
     void run();
     VoxelData Prepare_object(const std::string& objPath, float scale = 1.0f, float3 displacement = {0.0f, 0.0f, 0.0f});
     std::vector<Triangle> Prepare_triangles(const std::string& objPath, float scale = 1.0f, float3 displacement = {0.0f, 0.0f, 0.0f});
-
     VoxelData MergeVoxelData(const std::vector<VoxelData>& voxelDataArray);
     std::vector<Triangle> MergeTriangles(const std::vector<std::vector<Triangle>>& triangleArrays);
     private:
