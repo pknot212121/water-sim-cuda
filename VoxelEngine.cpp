@@ -450,10 +450,10 @@ void VoxelEngine::normalize(VoxelData& data, float normalizeSize, float scale, c
         std::cout << "  Warning: All voxels were removed!" << std::endl;
     }
 
-    // Step 7: Snap voxels to discrete grid with resolution 0.1 AND expand to neighbors
-    std::cout << "  Snapping voxels to discrete grid (0.1 resolution) with 5x5x5 expansion..." << std::endl;
+    // Step 7: Snap voxels to discrete grid with resolution AND expand to neighbors
+    std::cout << "  Snapping voxels to discrete grid (RESOLUTION) with 5x5x5 expansion..." << std::endl;
 
-    const float gridResolution = 0.1f;
+    const float gridResolution = RESOLUTION;
     int maxGridIndex = (int)(normalizeSize / gridResolution);
     const int expansionRadius = 2; // Will create 5 voxels per dimension (-2, -1, 0, +1, +2)
 
