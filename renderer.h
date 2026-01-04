@@ -2,6 +2,9 @@
 #include <GLFW/glfw3.h>
 #include "cuda_runtime.h"
 #include <cuda_gl_interop.h>
+#include <vector>
+#include "VoxelEngine.h"
+
 #include "common.cuh"
 
 constexpr int SCREEN_WIDTH = 800;
@@ -14,10 +17,13 @@ class Renderer
         ~Renderer();
         void draw(int number,float3* positionsFromCUDA);
         void setupShaders();
+        void setTriangles(std::vector<Triangle> triangles);
         inline bool isWindowClosed(){return closed;}
     private:
         GLFWwindow* window;
         bool closed = false;
         GLuint vbo,vao,shaderProgram;
+        GLuint collVbo,collVao;
+        int triCount = 0;
         cudaGraphicsResource* cudaResource;
 };

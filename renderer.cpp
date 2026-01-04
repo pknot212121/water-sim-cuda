@@ -13,7 +13,8 @@ const char* vertexShaderSource = "#version 330 core\n"
 
 const char* fragmentShaderSource = "#version 330 core\n"
 "out vec4 FragColor;\n"
-"void main() { FragColor = vec4(0.0,0.5,1.0,1.0); }\0";
+"uniform vec4 uColor;\n"
+"void main() { FragColor = uColor; }\0";
 
 glm::mat4 projection = glm::perspective(glm::radians(45.0f),(float)SCREEN_WIDTH/SCREEN_HEIGHT,0.1f,5000.0f);
 glm::mat4 view = glm::lookAt(glm::vec3(SIZE_X/2,SIZE_Y/2,SIZE_Z*2),glm::vec3(SIZE_X/2,SIZE_Y/2,SIZE_Z/2),glm::vec3(0.0f,1.0f,0.0f));
@@ -80,6 +81,7 @@ void Renderer::draw(int number,float3* positionsFromCUDA)
     cudaGraphicsUnmapResources(1,&cudaResource,0);
 
     glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
+    //glEnable(GL_DEPTH_TEST);
     glClear(GL_COLOR_BUFFER_BIT);
 
     glUseProgram(shaderProgram);
@@ -88,11 +90,24 @@ void Renderer::draw(int number,float3* positionsFromCUDA)
     GLuint mvpLoc = glGetUniformLocation(shaderProgram,"mvp");
     glUniformMatrix4fv(mvpLoc,1,GL_FALSE,glm::value_ptr(mvp));
 
+    GLuint colorLoc = glGetUniformLocation(shaderProgram,"uColor");
+
+    if (triCount > 0 )
+    {
+        glUniform4f(colorLoc,0.5f,0.5f,0.5f,1.0f);
+        glBindVertexArray(collVao);
+        glPolygonMode(GL_FRONT_AND_BACK,GL_LINE);
+        glDrawArrays(GL_TRIANGLES,0,triCount);
+        glBindVertexArray(0);
+    }
+
+    glUniform4f(colorLoc,0.0f,0.5f,1.0f,1.0f);
     glPointSize(3.0f);
     glBindVertexArray(vao);
 
     glDrawArrays(GL_POINTS,0,number);
 
+    glBindVertexArray(0);
     glfwSwapBuffers(window);
     glfwPollEvents();
 }
@@ -127,4 +142,21 @@ void Renderer::setupShaders()
 
     glDeleteShader(vertexShader);
     glDeleteShader(fragmentShader);
+}
+
+void Renderer::setTriangles(std::vector<Triangle> triangles)
+{
+    triCount = triangles.size() * 3;
+
+    glGenVertexArrays(1,&collVao);
+    glGenBuffers(1,&collVbo);
+
+    glBindVertexArray(collVao);
+    glBindBuffer(GL_ARRAY_BUFFER,collVbo);
+    glBufferData(GL_ARRAY_BUFFER,triangles.size() * sizeof(Triangle), triangles.data(),GL_STATIC_DRAW);
+    glVertexAttribPointer(0,3,GL_FLOAT,GL_FALSE,sizeof(float3),(void*)0);
+    glEnableVertexAttribArray(0);
+
+    glBindBuffer(GL_ARRAY_BUFFER,0);
+    glBindVertexArray(0);
 }

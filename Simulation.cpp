@@ -3,6 +3,16 @@
 
 Simulation::Simulation() : engine(createEngine()), renderer(engine.getNumber()) // Initialize engine with 1 million particles
 {
+    std::vector<std::vector<Triangle>> triangleObjects = {
+        Prepare_triangles("Glass_Cup.obj",0.6f),
+        // Prepare_triangles("pipes.obj"),
+        // Prepare_triangles("pipes.obj"),
+        // Prepare_triangles("pipes.obj")
+    };
+
+    // Scalenie wszystkich trójkątów w jeden wektor
+    std::vector<Triangle> allTriangles = MergeTriangles(triangleObjects);
+    renderer.setTriangles(allTriangles);
 }
 
 Simulation::~Simulation() {}
@@ -42,15 +52,7 @@ Engine Simulation::createEngine() {
     std::copy(combinedResult.begin(), combinedResult.end(), h_buffer);
 
     //Wczytanie kilka obiektow kolizyjnych
-    std::vector<std::vector<Triangle>> triangleObjects = {
-        Prepare_triangles("pipes.obj"),
-        // Prepare_triangles("pipes.obj"),
-        // Prepare_triangles("pipes.obj"),
-        // Prepare_triangles("pipes.obj")
-    };
 
-    // Scalenie wszystkich trójkątów w jeden wektor
-    std::vector<Triangle> allTriangles = MergeTriangles(triangleObjects);
 
     return Engine(bufferSize / 26, h_buffer);
 }
