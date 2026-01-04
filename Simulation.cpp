@@ -20,7 +20,7 @@ Simulation::~Simulation() {}
 /* --- HAS TO BE DONE IN THIS ORDER - OTHERWISE WILL NOT WORK! ---- */
 void Simulation::run() {
     while (!renderer.isWindowClosed()) {
-        for (int i=0;i<5;i++)
+        for (int i=0;i<SUBSTEPS;i++)
         {
             this->engine.step();
         }
@@ -37,8 +37,8 @@ Engine Simulation::createEngine() {
     // Wczytanie i przetworzenie kilku obiektow voxelowych
     std::vector<VoxelData> voxelObjects = {
         Prepare_object("test.obj"),
-        Prepare_object("test.obj",2,{-10.0f,-10.0f,-10.0f}),
-        Prepare_object("test.obj",2,{10.0f,10.0f,10.0f})
+        // Prepare_object("test.obj",2,{-10.0f,-10.0f,-10.0f}),
+        // Prepare_object("test.obj",2,{10.0f,10.0f,10.0f})
     };
 
     // Scalenie wszystkich VoxelData w jeden
