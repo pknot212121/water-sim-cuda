@@ -34,6 +34,18 @@ Engine Simulation::createEngine() {
     this->voxelEngine = VoxelEngine();
     this->voxelPipeline = VoxelPipeline();
 
+    //SDF
+    ObjData sdfObj = objLoader.loadObj("test.obj");
+    std::vector<Triangle> sdfTriangles = voxelEngine.extractTriangles(sdfObj);
+    std::vector<float> sdf = voxelEngine.getSdf(sdfTriangles, SIZE_X);
+    //std::pair<std::vector<float>,std::vector<glm::vec3>> sdf = voxelEngine.CreateSDF();
+    // size_t sdfSize = sdf.size();
+    // float* sdfBuffer = new float[sdfSize];
+    // std::copy(sdf.begin(), sdf.end(), sdfBuffer);
+
+
+
+
     // Wczytanie i przetworzenie kilku obiektow voxelowych
     std::vector<VoxelData> voxelObjects = {
         Prepare_object("test.obj"),

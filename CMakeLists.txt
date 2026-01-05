@@ -37,6 +37,8 @@ find_package(nlohmann_json CONFIG REQUIRED)
 find_package(glfw3 CONFIG REQUIRED)
 find_package(glad CONFIG REQUIRED)
 find_package(glm CONFIG REQUIRED)
+find_package(Eigen3 CONFIG REQUIRED)
+find_package(libigl CONFIG REQUIRED)
 
 target_link_libraries(water
     PRIVATE
@@ -47,6 +49,8 @@ target_link_libraries(water
     glfw
     glad::glad
     glm::glm
+    Eigen3::Eigen
+    igl::igl_core
 )
 
 add_custom_command(TARGET water POST_BUILD

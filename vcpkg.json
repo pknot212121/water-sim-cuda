@@ -23,5 +23,11 @@
   },
   {
     "name" : "glm"
+  },
+  {
+    "name" : "eigen3"
+  },
+  {
+    "name" : "libigl"
   }]
 }

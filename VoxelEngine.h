@@ -4,6 +4,8 @@
 #include <vector>
 #include <algorithm>
 #include <cuda_runtime.h>
+#include <glm/vec3.hpp>
+
 #include "ObjLoader.h"
 
 struct VoxelData
@@ -55,6 +57,9 @@ public:
     void normalize(std::vector<Triangle>& triangles, float normalizeSize, float scale, const float3& displacement);
 
     std::vector<Triangle> extractTriangles(const ObjData& objData);
+
+    std::vector<float> getSdf(const std::vector<Triangle>& triangles, int grid_size = 256);
+    std::pair<std::vector<float>,std::vector<glm::vec3>> CreateSDF();
 
 private:
     struct BoundingBox
