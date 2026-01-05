@@ -11,7 +11,7 @@ print(scale)
 v = v / scale * 0.9
 print(np.max(v))
 
-resolution = 256
+resolution = 128
 x = np.linspace(-1, 1, resolution)
 y = np.linspace(-1, 1, resolution)
 z = np.linspace(-1, 1, resolution)

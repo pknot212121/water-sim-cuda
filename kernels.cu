@@ -50,7 +50,12 @@ __global__ void p2GTransferScatter(Particles p,Grid g,int number,int* sortedIndi
         shMomY[i] = 0;
         shMomZ[i] = 0;
     }
-
+    float distToWall = getSDF(pPos, g);
+    bool useOneSided = (distToWall < 1.0f) && (distToWall > 0.0f);
+    float3 normal = {0,0,0};
+    if (useOneSided) {
+        normal = calculateNormal(pPos, g);
+    }
     __syncthreads();
 
     if (threadIndex<number)
@@ -62,6 +67,46 @@ __global__ void p2GTransferScatter(Particles p,Grid g,int number,int* sortedIndi
         for(int i=0; i<3; i++) wy[i] = spline(pPos.y - (posY + i));
         #pragma unroll
         for(int i=0; i<3; i++) wz[i] = spline(pPos.z - (posZ + i));
+
+
+        float normNumber = 1.0f;
+
+        if (useOneSided)
+        {
+            float validWeightSum = 0.0f;
+#pragma unroll
+            for (int i=0;i<3;i++)
+            {
+#pragma unroll
+                for (int j=0;j<3;j++)
+                {
+#pragma unroll
+                    for (int k=0;k<3;k++)
+                    {
+                        if (isInBounds(posX+i,posY+j,posZ+k))
+                        {
+                            float3 d = {pPos.x - (posX + i), pPos.y - (posY + j), pPos.z - (posZ + k)};
+                            float3 dist = {-d.x,-d.y,-d.z};
+                            if ((dist.x*normal.x + dist.y*normal.y + dist.z * normal.z) >= 0)
+                            {
+                                validWeightSum += wx[i] * wy[j] * wz[k];
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (validWeightSum > 0.5f)
+            {
+                normNumber = 1.0f / validWeightSum;
+                if (normNumber>3.0f) normNumber=3.0f;
+            }
+            else
+            {
+                normNumber = 1.0f;
+                useOneSided = false;
+            }
+        }
 
         #pragma unroll
         for (int i=0;i<3;i++)
@@ -86,13 +131,14 @@ __global__ void p2GTransferScatter(Particles p,Grid g,int number,int* sortedIndi
                         float3 dist = {-d.x,-d.y,-d.z};
 
                         float weight = wx[i] * wy[j] * wz[k];
-                        float weightedMass = pM * weight;
+                        float weightedMass = pM * weight * normNumber;
 
                         float3 Cxd = multiplyCxd(oldC, dist);
                         float velX = weightedMass * (pVel.x + Cxd.x);
                         float velY = weightedMass * (pVel.y + Cxd.y);
                         float velZ = weightedMass * (pVel.z + Cxd.z);
 
+                        if (useOneSided && (dist.x*normal.x + dist.y*normal.y + dist.z*normal.z < 0) ) continue;
                         if (dx >= 0 && dx < SHARED_GRID_HEIGHT && dy >= 0 && dy < SHARED_GRID_HEIGHT && dz >= 0 && dz <SHARED_GRID_HEIGHT)
                         {
                             atomicAdd(&shMass[localIdx], weightedMass);
@@ -205,14 +251,11 @@ __global__ void g2PTransfer(Particles p, Grid g,int number,int *sortedIndices)
                     size_t cellIdx = getGridIdx(posX + i, posY + j, posZ + k);
                     float3 d = {pPos.x - (float)(posX + i), pPos.y - (float)(posY + j), pPos.z - (float)(posZ + k)};
                     float weight = wx[i]*wy[j]*wz[k];
-
-
+                    float3 dist = {-d.x,-d.y,-d.z};
 
                     totalVel.x += weight * g.momentum[0][cellIdx];
                     totalVel.y += weight * g.momentum[1][cellIdx];
                     totalVel.z += weight * g.momentum[2][cellIdx];
-
-                    float3 dist = {-d.x,-d.y,-d.z};
                     float term = 4.0f * weight;
                     totalC[0] += term * g.momentum[0][cellIdx] * dist.x;
                     totalC[1] += term * g.momentum[0][cellIdx] * dist.y;
@@ -230,16 +273,18 @@ __global__ void g2PTransfer(Particles p, Grid g,int number,int *sortedIndices)
 
     float oldF[9];
 #pragma unroll
-    for (int i=0;i<9;i++) oldF[i]=p.f[i][particleIdx];
+    for (int i = 0; i < 9; i++) oldF[i] = p.f[i][particleIdx];
 
 
-    float newF[9]; float tempC[9];
-    for (int i=0;i<9;i++) tempC[i]=totalC[i];
-    calculateNewF(tempC,oldF,newF);
+    float newF[9];
+    float tempC[9];
+    for (int i = 0; i < 9; i++) tempC[i] = totalC[i];
+    calculateNewF(tempC, oldF, newF);
     float J = det3x3(newF);
-    if (J < 0.3f) {
-        float scale = powf(0.3f / J, 1.0f/3.0f);
-        for(int i=0; i<9; i++) newF[i] *= scale;
+    if (J < 0.3f)
+    {
+        float scale = powf(0.3f / J, 1.0f / 3.0f);
+        for (int i = 0; i < 9; i++) newF[i] *= scale;
     }
 
     float3 nextPos = {
@@ -248,10 +293,10 @@ __global__ void g2PTransfer(Particles p, Grid g,int number,int *sortedIndices)
         p.pos[2][particleIdx] + totalVel.z * DT
     };
 
-    float dist = getSDF(nextPos,g);
+    float dist = getSDF(nextPos, g);
     if (dist < 0.0f)
     {
-        float3 normal = calculateNormal(nextPos,g);
+        float3 normal = calculateNormal(nextPos, g);
         nextPos.x -= dist * normal.x;
         nextPos.y -= dist * normal.y;
         nextPos.z -= dist * normal.z;
@@ -271,8 +316,8 @@ __global__ void g2PTransfer(Particles p, Grid g,int number,int *sortedIndices)
     p.pos[0][particleIdx] = nextPos.x;
     p.pos[1][particleIdx] = nextPos.y;
     p.pos[2][particleIdx] = nextPos.z;
-    for (int i=0;i<9;i++) p.c[i][particleIdx] = totalC[i];
-    for (int i=0;i<9;i++) p.f[i][particleIdx] = newF[i];
+    for (int i = 0; i < 9; i++) p.c[i][particleIdx] = totalC[i];
+    for (int i = 0; i < 9; i++) p.f[i][particleIdx] = newF[i];
 }
 
 __global__ void testKernel(Particles p,int number)

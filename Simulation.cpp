@@ -4,7 +4,7 @@
 Simulation::Simulation() : engine(createEngine()), renderer(engine.getNumber()) // Initialize engine with 1 million particles
 {
     std::vector<std::vector<Triangle>> triangleObjects = {
-        Prepare_triangles("Glass_Cup.obj",0.6f),
+        Prepare_triangles("Glass_Cup.obj",0.6f,{0.0f,0.0f,0.0f}),
         // Prepare_triangles("pipes.obj"),
         // Prepare_triangles("pipes.obj"),
         // Prepare_triangles("pipes.obj")
@@ -37,7 +37,7 @@ Engine Simulation::createEngine() {
     //SDF
     ObjData sdfObj = objLoader.loadObj("test.obj");
     std::vector<Triangle> sdfTriangles = voxelEngine.extractTriangles(sdfObj);
-    std::vector<float> sdf = voxelEngine.getSdf(sdfTriangles, 32);
+    //std::vector<float> sdf = voxelEngine.getSdf(sdfTriangles, 8);
     //std::pair<std::vector<float>,std::vector<glm::vec3>> sdf = voxelEngine.CreateSDF();
     // size_t sdfSize = sdf.size();
     // float* sdfBuffer = new float[sdfSize];

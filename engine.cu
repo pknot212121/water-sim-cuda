@@ -109,6 +109,7 @@ std::vector<float> loadSDF(const std::string& filename, int res) {
     std::ifstream is(filename, std::ios::binary);
     if (is) {
         is.read(reinterpret_cast<char*>(data.data()), size * sizeof(float));
+        //memset(data.data(),10.0f,size * sizeof(float));
     }
     else
     {

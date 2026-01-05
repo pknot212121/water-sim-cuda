@@ -5,10 +5,8 @@
 #include <set>
 #include <map>
 #include <tuple>
-#include <Eigen/Core>
 #include <glm/vec3.hpp>
-#include <igl/signed_distance.h>
-#include <igl/read_triangle_mesh.h>
+
 
 #include "common.cuh"
 
@@ -977,166 +975,167 @@ std::vector<Triangle> VoxelEngine::extractTriangles(const ObjData& objData)
 }
 
 std::vector<float> VoxelEngine::getSdf(const std::vector<Triangle> &triangles, int grid_size) {
-    using namespace Eigen;
-
-    std::cout << "=== SDF Generation using libigl ===" << std::endl;
-    std::cout << "Grid resolution: " << grid_size << "^3 = " << (grid_size * grid_size * grid_size) << " points" << std::endl;
-    std::cout << "Triangles: " << triangles.size() << std::endl;
-
-    // --- TRIANGLES -> (V,F) ---
-    std::cout << "Converting triangles to Eigen matrices (using shared vertices)..." << std::endl;
-
-    std::map<std::tuple<double, double, double>, int> vertexMap;
-    std::vector<Eigen::RowVector3d> uniqueVertices;
-    MatrixXi F(triangles.size(), 3);
-
-    auto getOrCreateVertex = [&](double x, double y, double z) -> int {
-        auto key = std::make_tuple(x, y, z);
-        auto it = vertexMap.find(key);
-        if (it != vertexMap.end()) {
-            return it->second;
-        }
-        int idx = uniqueVertices.size();
-        uniqueVertices.push_back(Eigen::RowVector3d(x, y, z));
-        vertexMap[key] = idx;
-        return idx;
-    };
-
-    for (int i = 0; i < triangles.size(); ++i)
-    {
-        int v0_idx = getOrCreateVertex(triangles[i].v0.x, triangles[i].v0.y, triangles[i].v0.z);
-        int v1_idx = getOrCreateVertex(triangles[i].v1.x, triangles[i].v1.y, triangles[i].v1.z);
-        int v2_idx = getOrCreateVertex(triangles[i].v2.x, triangles[i].v2.y, triangles[i].v2.z);
-
-        F.row(i) << v0_idx, v1_idx, v2_idx;
-    }
-
-    // Convert unique vertices to Eigen matrix
-    MatrixXd V(uniqueVertices.size(), 3);
-    for (size_t i = 0; i < uniqueVertices.size(); ++i)
-    {
-        V.row(i) = uniqueVertices[i];
-    }
-
-    std::cout << "  Unique vertices: " << V.rows() << " (from " << (triangles.size() * 3) << " triangle corners)" << std::endl;
-    std::cout << "  Reduction: " << (100.0 * (1.0 - (double)V.rows() / (triangles.size() * 3))) << "%" << std::endl;
-
-    // --- NORMALIZACJA ---
-    std::cout << "Normalizing mesh..." << std::endl;
-    RowVector3d min_point = V.colwise().minCoeff();
-    RowVector3d max_point = V.colwise().maxCoeff();
-    RowVector3d center = (min_point + max_point) * 0.5;
-
-    V.rowwise() -= center;
-    double scale = (max_point - min_point).maxCoeff();
-    if (scale > 0.0)
-        V *= (2.0 / scale);
-
-    // --- GRID ---
-    std::cout << "Creating query grid..." << std::endl;
-    int res = grid_size;
-    MatrixXd P(res * res * res, 3);
-
-    int idx = 0;
-    for (int z = 0; z < res; ++z)
-        for (int y = 0; y < res; ++y)
-            for (int x = 0; x < res; ++x)
-            {
-                P.row(idx++) <<
-                    -1.0 + 2.0 * x / (res - 1),
-                    -1.0 + 2.0 * y / (res - 1),
-                    -1.0 + 2.0 * z / (res - 1);
-            }
-
-    // --- SDF ---
-    VectorXd S;
-    VectorXi I;
-    MatrixXd C;
-    MatrixXd N;
-
-    igl::signed_distance(
-        P, V, F,
-        igl::SIGNED_DISTANCE_TYPE_FAST_WINDING_NUMBER,
-        S, I, C, N
-    );
-    std::cout << "AAA" << std::endl;
-    std::vector<float> distances(S.rows());
-    for (int i = 0; i < S.rows(); ++i) {
-        distances[i] = static_cast<float>(S(i, 0));
-    }
+    // using namespace Eigen;
+    //
+    // std::cout << "=== SDF Generation using libigl ===" << std::endl;
+    // std::cout << "Grid resolution: " << grid_size << "^3 = " << (grid_size * grid_size * grid_size) << " points" << std::endl;
+    // std::cout << "Triangles: " << triangles.size() << std::endl;
+    //
+    // // --- TRIANGLES -> (V,F) ---
+    // std::cout << "Converting triangles to Eigen matrices (using shared vertices)..." << std::endl;
+    //
+    // std::map<std::tuple<double, double, double>, int> vertexMap;
+    // std::vector<Eigen::RowVector3d> uniqueVertices;
+    // MatrixXi F(triangles.size(), 3);
+    //
+    // auto getOrCreateVertex = [&](double x, double y, double z) -> int {
+    //     auto key = std::make_tuple(x, y, z);
+    //     auto it = vertexMap.find(key);
+    //     if (it != vertexMap.end()) {
+    //         return it->second;
+    //     }
+    //     int idx = uniqueVertices.size();
+    //     uniqueVertices.push_back(Eigen::RowVector3d(x, y, z));
+    //     vertexMap[key] = idx;
+    //     return idx;
+    // };
+    //
+    // for (int i = 0; i < triangles.size(); ++i)
+    // {
+    //     int v0_idx = getOrCreateVertex(triangles[i].v0.x, triangles[i].v0.y, triangles[i].v0.z);
+    //     int v1_idx = getOrCreateVertex(triangles[i].v1.x, triangles[i].v1.y, triangles[i].v1.z);
+    //     int v2_idx = getOrCreateVertex(triangles[i].v2.x, triangles[i].v2.y, triangles[i].v2.z);
+    //
+    //     F.row(i) << v0_idx, v1_idx, v2_idx;
+    // }
+    //
+    // // Convert unique vertices to Eigen matrix
+    // MatrixXd V(uniqueVertices.size(), 3);
+    // for (size_t i = 0; i < uniqueVertices.size(); ++i)
+    // {
+    //     V.row(i) = uniqueVertices[i];
+    // }
+    //
+    // std::cout << "  Unique vertices: " << V.rows() << " (from " << (triangles.size() * 3) << " triangle corners)" << std::endl;
+    // std::cout << "  Reduction: " << (100.0 * (1.0 - (double)V.rows() / (triangles.size() * 3))) << "%" << std::endl;
+    //
+    // // --- NORMALIZACJA ---
+    // std::cout << "Normalizing mesh..." << std::endl;
+    // RowVector3d min_point = V.colwise().minCoeff();
+    // RowVector3d max_point = V.colwise().maxCoeff();
+    // RowVector3d center = (min_point + max_point) * 0.5;
+    //
+    // V.rowwise() -= center;
+    // double scale = (max_point - min_point).maxCoeff();
+    // if (scale > 0.0)
+    //     V *= (2.0 / scale);
+    //
+    // // --- GRID ---
+    // std::cout << "Creating query grid..." << std::endl;
+    // int res = grid_size;
+    // MatrixXd P(res * res * res, 3);
+    //
+    // int idx = 0;
+    // for (int z = 0; z < res; ++z)
+    //     for (int y = 0; y < res; ++y)
+    //         for (int x = 0; x < res; ++x)
+    //         {
+    //             P.row(idx++) <<
+    //                 -1.0 + 2.0 * x / (res - 1),
+    //                 -1.0 + 2.0 * y / (res - 1),
+    //                 -1.0 + 2.0 * z / (res - 1);
+    //         }
+    //
+    // // --- SDF ---
+    // VectorXd S;
+    // VectorXi I;
+    // MatrixXd C;
+    // MatrixXd N;
+    //
+    // igl::signed_distance(
+    //     P, V, F,
+    //     igl::SIGNED_DISTANCE_TYPE_FAST_WINDING_NUMBER,
+    //     S, I, C, N
+    // );
+    // std::cout << "AAA" << std::endl;
+    // std::vector<float> distances(S.rows());
+    // for (int i = 0; i < S.rows(); ++i) {
+    //     distances[i] = static_cast<float>(S(i, 0));
+    // }
+    std::vector<float> distances;
     return distances;
 }
 
 std::pair<std::vector<float>,std::vector<glm::vec3>> VoxelEngine::CreateSDF()
 {
-    using namespace Eigen;
-    MatrixXd V;
-    MatrixXi F;
-    if (!igl::read_triangle_mesh("test.obj", V, F)) {
-        std::cout << "Nie udało się wczytać pliku." << std::endl;
-    }
+    // using namespace Eigen;
+    // MatrixXd V;
+    // MatrixXi F;
+    // if (!igl::read_triangle_mesh("test.obj", V, F)) {
+    //     std::cout << "Nie udało się wczytać pliku." << std::endl;
+    // }
+    //
+    // int res_x =128;
+    // int res_y = 128;
+    // int res_z = 128;
+    //
+    // Eigen::RowVector3d min_point = V.colwise().minCoeff();
+    // Eigen::RowVector3d max_point = V.colwise().maxCoeff();
+    //
+    // Eigen::RowVector3d center = (min_point + max_point) / 2.0;
+    //
+    // V.rowwise() -= center;
+    // RowVector3d lengths = max_point - min_point;
+    // double max_len = lengths.maxCoeff();
+    //
+    // // Zabezpieczenie przed dzieleniem przez 0 (jak w LoadModelIndexed)
+    // double scale_factor = (max_len > 0) ? (2.0 / max_len) : 1.0;
+    //
+    // V *= scale_factor;
+    // V.rowwise() -= RowVector3d(0.0,1.0,0.0);
+    //
+    // min_point = RowVector3d(-1.0,-1.0,-1.0);
+    // max_point = RowVector3d(1.0,1.0,1.0);
+    // RowVector3d grid_dims = max_point - min_point;
+    // double step_x = grid_dims(0) / (res_x - 1);
+    // double step_y = grid_dims(1) / (res_y - 1);
+    // double step_z = grid_dims(2) / (res_z - 1);
+    //
+    // MatrixXd P(res_x * res_y * res_z, 3);
+    //
+    // int iter = 0;
+    // for (int z = 0; z < res_z; ++z) {
+    //     for (int y = 0; y < res_y; ++y) {
+    //         for (int x = 0; x < res_x; ++x) {
+    //             P(iter, 0) = min_point(0) + x * step_x;
+    //             P(iter, 1) = min_point(1) + y * step_y;
+    //             P(iter, 2) = min_point(2) + z * step_z;
+    //             iter++;
+    //         }
+    //     }
+    // }
+    //
+    // VectorXd S;
+    // VectorXi I;
+    // MatrixXd C;
+    // MatrixXd N;
+    //
+    // igl::signed_distance(P, V, F, igl::SIGNED_DISTANCE_TYPE_PSEUDONORMAL, S, I, C, N);
+    std::vector<glm::vec3> gradients;
 
-    int res_x =128;
-    int res_y = 128;
-    int res_z = 128;
-
-    Eigen::RowVector3d min_point = V.colwise().minCoeff();
-    Eigen::RowVector3d max_point = V.colwise().maxCoeff();
-
-    Eigen::RowVector3d center = (min_point + max_point) / 2.0;
-
-    V.rowwise() -= center;
-    RowVector3d lengths = max_point - min_point;
-    double max_len = lengths.maxCoeff();
-
-    // Zabezpieczenie przed dzieleniem przez 0 (jak w LoadModelIndexed)
-    double scale_factor = (max_len > 0) ? (2.0 / max_len) : 1.0;
-
-    V *= scale_factor;
-    V.rowwise() -= RowVector3d(0.0,1.0,0.0);
-
-    min_point = RowVector3d(-1.0,-1.0,-1.0);
-    max_point = RowVector3d(1.0,1.0,1.0);
-    RowVector3d grid_dims = max_point - min_point;
-    double step_x = grid_dims(0) / (res_x - 1);
-    double step_y = grid_dims(1) / (res_y - 1);
-    double step_z = grid_dims(2) / (res_z - 1);
-
-    MatrixXd P(res_x * res_y * res_z, 3);
-
-    int iter = 0;
-    for (int z = 0; z < res_z; ++z) {
-        for (int y = 0; y < res_y; ++y) {
-            for (int x = 0; x < res_x; ++x) {
-                P(iter, 0) = min_point(0) + x * step_x;
-                P(iter, 1) = min_point(1) + y * step_y;
-                P(iter, 2) = min_point(2) + z * step_z;
-                iter++;
-            }
-        }
-    }
-
-    VectorXd S;
-    VectorXi I;
-    MatrixXd C;
-    MatrixXd N;
-
-    igl::signed_distance(P, V, F, igl::SIGNED_DISTANCE_TYPE_PSEUDONORMAL, S, I, C, N);
-    std::vector<glm::vec3> gradients(N.rows());
-
-    for (int i = 0; i < N.rows(); ++i) {
-        gradients[i] = glm::vec3(
-            static_cast<float>(N(i, 0)),
-            static_cast<float>(N(i, 1)),
-            static_cast<float>(N(i, 2))
-        );
-    }
-    std::cout << "AAA" << std::endl;
-    std::vector<float> distances(S.rows());
-    for (int i = 0; i < S.rows(); ++i) {
-        distances[i] = static_cast<float>(S(i, 0));
-    }
-    std::cout << "AAA" << std::endl;
+    // for (int i = 0; i < N.rows(); ++i) {
+    //     gradients[i] = glm::vec3(
+    //         static_cast<float>(N(i, 0)),
+    //         static_cast<float>(N(i, 1)),
+    //         static_cast<float>(N(i, 2))
+    //     );
+    // }
+    // std::cout << "AAA" << std::endl;
+    std::vector<float> distances;
+    // for (int i = 0; i < S.rows(); ++i) {
+    //     distances[i] = static_cast<float>(S(i, 0));
+    // }
+    // std::cout << "AAA" << std::endl;
     return std::pair(distances,gradients);
 }
 
