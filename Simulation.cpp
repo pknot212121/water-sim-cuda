@@ -37,7 +37,7 @@ Engine Simulation::createEngine() {
     //SDF
     ObjData sdfObj = objLoader.loadObj("test.obj");
     std::vector<Triangle> sdfTriangles = voxelEngine.extractTriangles(sdfObj);
-    std::vector<float> sdf = voxelEngine.getSdf(sdfTriangles, SIZE_X);
+    std::vector<float> sdf = voxelEngine.getSdf(sdfTriangles, 32);
     //std::pair<std::vector<float>,std::vector<glm::vec3>> sdf = voxelEngine.CreateSDF();
     // size_t sdfSize = sdf.size();
     // float* sdfBuffer = new float[sdfSize];

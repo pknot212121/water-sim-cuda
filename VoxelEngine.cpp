@@ -1054,29 +1054,16 @@ std::vector<float> VoxelEngine::getSdf(const std::vector<Triangle> &triangles, i
     MatrixXd C;
     MatrixXd N;
 
-    std::cout << "Computing signed distance for " << P.rows() << " query points..." << std::endl;
-    std::cout << "Using Fast Winding Number (much faster than PSEUDONORMAL for large grids)" << std::endl;
-
     igl::signed_distance(
         P, V, F,
-        igl::SIGNED_DISTANCE_TYPE_DEFAULT,  // Fast Winding Number - FAST!
+        igl::SIGNED_DISTANCE_TYPE_FAST_WINDING_NUMBER,
         S, I, C, N
     );
-
-    std::cout << "Signed distance computation complete!" << std::endl;
-
-    // --- OUTPUT ---
-    std::cout << "Converting to float vector..." << std::endl;
-    std::vector<float> distances(S.size());
-    for (int i = 0; i < S.size(); ++i)
-        distances[i] = static_cast<float>(S(i));
-
-    // Statistics
-    float minDist = *std::min_element(distances.begin(), distances.end());
-    float maxDist = *std::max_element(distances.begin(), distances.end());
-    std::cout << "SDF range: [" << minDist << ", " << maxDist << "]" << std::endl;
-    std::cout << "=== SDF Generation Complete! ===" << std::endl;
-
+    std::cout << "AAA" << std::endl;
+    std::vector<float> distances(S.rows());
+    for (int i = 0; i < S.rows(); ++i) {
+        distances[i] = static_cast<float>(S(i, 0));
+    }
     return distances;
 }
 
