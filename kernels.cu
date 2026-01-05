@@ -71,7 +71,7 @@ __global__ void p2GTransferScatter(Particles p,Grid g,int number,int* sortedIndi
                             if ((dist.x*normal.x + dist.y*normal.y + dist.z * normal.z) >= 0) validWeightSum += wx[i] * wy[j] * wz[k];
                         }
 
-            if (validWeightSum > 0.5f)
+            if (validWeightSum > 0.1f)
             {
                 normNumber = 1.0f / validWeightSum;
                 if (normNumber>3.0f) normNumber=3.0f;
@@ -172,9 +172,7 @@ __global__ void g2PTransfer(Particles p, Grid g,int number,int *sortedIndices)
     const int threadIndex = blockIdx.x * blockDim.x + threadIdx.x;
     if (threadIndex>=number) return;
     const int particleIdx = __ldg(&sortedIndices[threadIndex]);
-    const int posX = (int)(p.pos[0][particleIdx]-0.5f);
-    const int posY = (int)(p.pos[1][particleIdx]-0.5f);
-    const int posZ = (int)(p.pos[2][particleIdx]-0.5f);
+    const int posX = (int)(p.pos[0][particleIdx]-0.5f),posY = (int)(p.pos[1][particleIdx]-0.5f), posZ = (int)(p.pos[2][particleIdx]-0.5f);
     const float3 pPos = {p.pos[0][particleIdx],p.pos[1][particleIdx],p.pos[2][particleIdx]};
 
     float3 totalVel = {0.0f,0.0f,0.0f};
