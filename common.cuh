@@ -50,9 +50,10 @@ constexpr size_t THREADS_PER_BLOCK = 256;
 
 constexpr float GRAVITY = 9.81f;
 constexpr float DT = 0.02f;
-constexpr float GAMMA = -2.0f;
-constexpr float COMPRESSION = 1000.0f;
-constexpr float RESOLUTION = 0.3f;
+constexpr float GAMMA = -3.0f;
+constexpr float COMPRESSION = 10.0f;
+constexpr float RESOLUTION = 1.0f;
+constexpr int SUBSTEPS = 5;
 constexpr int SHARED_GRID_HEIGHT = 11;
 constexpr int SDF_RESOLUTION = 256;
 constexpr int SHARED_GRID_SIZE = SHARED_GRID_HEIGHT*SHARED_GRID_HEIGHT*SHARED_GRID_HEIGHT;
