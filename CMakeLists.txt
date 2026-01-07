@@ -50,18 +50,3 @@ target_link_libraries(water
     glm::glm
 )
 
-add_custom_command(TARGET water POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${CMAKE_SOURCE_DIR}/test.obj"
-        "$<TARGET_FILE_DIR:water>/test.obj"
-    COMMENT "Copying test.obj to build directory"
-)
-
-# Copy pipes.obj to build directory
-add_custom_command(TARGET water POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${CMAKE_SOURCE_DIR}/pipes.obj"
-        "$<TARGET_FILE_DIR:water>/pipes.obj"
-    COMMENT "Copying pipes.obj to build directory"
-)
-

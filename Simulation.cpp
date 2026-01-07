@@ -4,13 +4,9 @@
 Simulation::Simulation() : engine(createEngine()), renderer(engine.getNumber()) // Initialize engine with 1 million particles
 {
     std::vector<std::vector<Triangle>> triangleObjects = {
-        Prepare_triangles("Glass_Cup.obj",0.6f,{0.0f,0.0f,0.0f}),
-        // Prepare_triangles("pipes.obj"),
-        // Prepare_triangles("pipes.obj"),
-        // Prepare_triangles("pipes.obj")
+        Prepare_triangles("models/Glass_Cup.obj",0.6f,{0.0f,0.0f,0.0f}),
     };
 
-    // Scalenie wszystkich trójkątów w jeden wektor
     std::vector<Triangle> allTriangles = MergeTriangles(triangleObjects);
     renderer.setTriangles(allTriangles);
     engine.initSDF(allTriangles);
@@ -35,26 +31,11 @@ Engine Simulation::createEngine() {
     this->voxelEngine = VoxelEngine();
     this->voxelPipeline = VoxelPipeline();
 
-    //SDF
-    ObjData sdfObj = objLoader.loadObj("test.obj");
-    std::vector<Triangle> sdfTriangles = voxelEngine.extractTriangles(sdfObj);
-    //std::vector<float> sdf = voxelEngine.getSdf(sdfTriangles, 8);
-    //std::pair<std::vector<float>,std::vector<glm::vec3>> sdf = voxelEngine.CreateSDF();
-    // size_t sdfSize = sdf.size();
-    // float* sdfBuffer = new float[sdfSize];
-    // std::copy(sdf.begin(), sdf.end(), sdfBuffer);
 
-
-
-
-    // Wczytanie i przetworzenie kilku obiektow voxelowych
     std::vector<VoxelData> voxelObjects = {
-        Prepare_object("test.obj"),
-        // Prepare_object("test.obj",2,{-10.0f,-10.0f,-10.0f}),
-        // Prepare_object("test.obj",2,{10.0f,10.0f,10.0f})
+        Prepare_object("models/test.obj"),
     };
 
-    // Scalenie wszystkich VoxelData w jeden
     VoxelData combinedVoxelData = MergeVoxelData(voxelObjects);
 
     // Wywołanie process tylko raz na scalonych danych
@@ -63,10 +44,6 @@ Engine Simulation::createEngine() {
     size_t bufferSize = combinedResult.size();
     float* h_buffer = new float[bufferSize]();
     std::copy(combinedResult.begin(), combinedResult.end(), h_buffer);
-
-    //Wczytanie kilka obiektow kolizyjnych
-
-
     return Engine(bufferSize / 26, h_buffer);
 }
 

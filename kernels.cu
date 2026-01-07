@@ -41,7 +41,8 @@ __global__ void p2GTransferScatter(Particles p,Grid g,int number,int* sortedIndi
     }
     float distToWall = getSDF(pPos, g);
     float normNumber = 1.0f;
-    bool useOneSided = (distToWall < 1.0f) && (distToWall > 0.0f);
+    // bool useOneSided = (distToWall < 1.0f) && (distToWall > 0.0f);
+    bool useOneSided = false;
     float3 normal = {0,0,0};
     if (useOneSided) normal = calculateNormal(pPos, g);
     __syncthreads();
@@ -71,7 +72,7 @@ __global__ void p2GTransferScatter(Particles p,Grid g,int number,int* sortedIndi
                             if ((dist.x*normal.x + dist.y*normal.y + dist.z * normal.z) >= 0) validWeightSum += wx[i] * wy[j] * wz[k];
                         }
 
-            if (validWeightSum > 0.3f)
+            if (validWeightSum > 0.5f)
             {
                 normNumber = 1.0f / validWeightSum;
                 if (normNumber>3.0f) normNumber=3.0f;
