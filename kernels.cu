@@ -245,7 +245,7 @@ __global__ void g2PTransfer(Particles p, Grid g,int number,int *sortedIndices)
     for (int i = 0; i < 9; i++) p.f[i][particleIdx] = newF[i];
 }
 
-__global__ void makeSDF(float* sdfGrid,const Triangle* __restrict__ triangles,int triangleNumber,Grid g)
+__global__ void makeSDF(float* sdfGrid,const Triangle* __restrict__ triangles,int triangleNumber)
 {
     const int threadIndex = blockIdx.x * blockDim.x + threadIdx.x;
     if (threadIndex>=SIZE_X*SIZE_Y*SIZE_Z) return;
@@ -258,8 +258,11 @@ __global__ void makeSDF(float* sdfGrid,const Triangle* __restrict__ triangles,in
     {
         Triangle t = triangles[i];
         totalWindingNumber+=calculateSolidAngle(P,t);
-
+        float dSq = pointTriangleDistanceSq(P,t);
+        if (dSq < minDistSq) minDistSq = dSq;
     }
+    float wn = totalWindingNumber / (4.0f * 3.1415f);
+    sdfGrid[threadIndex] = (wn > 0.5f ? -1.0f : 1.0f) * sqrtf(minDistSq);
 }
 
 

@@ -88,16 +88,12 @@ struct __align__(16) Grid
 {
     float* mass;
     float* momentum[3];
-    cudaTextureObject_t tex;
-    float3 sdfBoxMin;
-    float3 sdfBoxMax;
-    __host__ __device__ Grid(float* buffer,cudaTextureObject_t tex, float3 bMin,float3 bMax)
+    float* sdf;
+    __host__ __device__ Grid(float* buffer,float* sdfBuffer)
     {
         mass = buffer + GRID_NUMBER * 0;
         for (int i=0;i<3;i++) momentum[i] = buffer + GRID_NUMBER * (i+1);
-        this->tex = tex;
-        this->sdfBoxMin = bMin;
-        this->sdfBoxMax = bMax;
+        sdf = sdfBuffer;
     }
 };
 
@@ -110,20 +106,16 @@ struct Triangle
 
 /* ---- GLOBAL FUNCTIONS ---- */
 #ifdef __CUDACC__
+__host__ __device__ inline int getGridIdx(int x,int y,int z)
+{
+    return z * SIZE_X*SIZE_Y + y * SIZE_X + x;
+}
 
 __device__ inline float getSDF(float3 pPos,Grid g)
 {
-    float3 t = {
-        (pPos.x - g.sdfBoxMin.x) / (g.sdfBoxMax.x - g.sdfBoxMin.x),
-        (pPos.y - g.sdfBoxMin.y) / (g.sdfBoxMax.y - g.sdfBoxMin.y),
-        (pPos.z - g.sdfBoxMin.z) / (g.sdfBoxMax.z - g.sdfBoxMin.z)
-    };
-    //printf("BOXMIN: %f, BOXMAX: %f\n",g.sdfBoxMin.x,g.sdfBoxMax.x);
-    //printf("PPOSX: %f, PPOSY: %f,PPOSZ: %f\n",pPos.x,pPos.y,pPos.z);
-    if (t.x<0.0f || t.x>1.0f || t.y < 0.0f || t.y > 1.0f || t.z < 0.0f || t.z > 1.0f) return 10.0f;
-    float signedDist = tex3D<float>(g.tex, t.x,t.y,t.z);
-    float halfSize = (g.sdfBoxMax.x - g.sdfBoxMin.x) * 0.5f;
-    return signedDist * halfSize;
+    int idX = getGridIdx(pPos.x,pPos.y,pPos.z);
+    float signedDist = g.sdf[idX];
+    return signedDist;
 }
 
 __device__ inline float3 calculateNormal(float3 pos,Grid g)
@@ -153,10 +145,7 @@ __device__ __forceinline__ float3 multiplyCxd(
 }
 
 
-__host__ __device__ inline int getGridIdx(int x,int y,int z)
-{
-    return z * SIZE_X*SIZE_Y + y * SIZE_X + x;
-}
+
 
 __host__ __device__ inline float spline(float x)
 {
@@ -248,10 +237,14 @@ __host__ __device__ inline float3 operator+(float3 a,float3 b)
     return make_float3(a.x+b.x,a.y+b.y,a.z+b.z);
 }
 
-// __host__ __device__ inline float3 operator*(float a,float3 b)
-// {
-//     return make_float3()
-// }
+__host__ __device__ inline float3 operator*(float a,float3 b)
+{
+    return make_float3(a*b.x,a*b.y,a*b.z);
+}
+__host__ __device__ inline float3 operator*(float3 b,float a)
+{
+    return make_float3(a*b.x,a*b.y,a*b.z);
+}
 
 __device__ inline unsigned int calculateMorton(unsigned int x, unsigned int y, unsigned int z)
 {
@@ -261,9 +254,9 @@ __device__ inline unsigned int calculateMorton(unsigned int x, unsigned int y, u
 
 __device__ inline float calculateSolidAngle(float3 P,Triangle t)
 {
-    float3 a = {t.v0.x - P.x, t.v0.y - P.y, t.v0.z - P.z};
-    float3 b = {t.v1.x - P.x, t.v1.y - P.y, t.v1.z - P.z};
-    float3 c = {t.v2.x - P.x, t.v2.y - P.y, t.v2.z - P.z};
+    float3 a = t.v0 - P;
+    float3 b = t.v1 - P;
+    float3 c = t.v2 - P;
     float lenA = norm3df(a.x,a.y,a.z);
     float lenB = norm3df(b.x,b.y,b.z);
     float lenC = norm3df(c.x,c.y,c.z);
@@ -276,16 +269,57 @@ __device__ inline float calculateSolidAngle(float3 P,Triangle t)
 
 __device__ inline float pointTriangleDistanceSq(float3 p,Triangle t)
 {
-    float3 ab = {t.v1.x - t.v0.x,t.v1.y-t.v0.y,t.v1.z-t.v0.z};
-    float3 ac = {t.v2.x - t.v0.x,t.v2.y-t.v0.y,t.v2.z-t.v0.z};
-    float3 ap = {p.x - t.v0.x,p.y-t.v0.y,p.z-t.v0.z};
+    float3 ab = t.v1 - t.v0;
+    float3 ac = t.v2 - t.v0;
+    float3 ap = p - t.v0;
 
     float d1 = dotVec3(ab,ap);
     float d2 = dotVec3(ac,ap);
     if (d1 <= 0.0f && d2 <= 0.0f) return dotVec3(ap,ap);
 
+    float3 bp = p - t.v1;
+    float d3 = dotVec3(ab,bp);
+    float d4 = dotVec3(ac,bp);
+    if (d3 >= 0.0f && d4 <= d3) return dotVec3(bp,bp);
 
+    float vc = d1 * d4 - d3 * d2;
+    if (vc <= 0.0f && d1 >= 0.0f && d3 <= 0.0f)
+    {
+        float v = d1 / (d1 - d3);
+        float3 closest = t.v0 + v * ab;
+        float3 diff = p - closest;
+        return dotVec3(diff,diff);
+    }
 
+    float3 cp = p - t.v2;
+    float d5 = dotVec3(ab,cp);
+    float d6 = dotVec3(ac,cp);
+    if (d6 >= 0.0f && d5 <= d6) return dotVec3(cp,cp);
+
+    float vb = d5 * d2 - d1 * d6;
+    if (vb <= 0.0f && d2 >= 0.0f && d6 <= 0.0f)
+    {
+        float w = d2 / (d2 - d6);
+        float3 closest = t.v0 + w * ac;
+        float3 diff = p - closest;
+        return dotVec3(diff,diff);
+    }
+
+    float va = d3 * d6 - d5 * d4;
+    if (va <= 0.0f && (d4-d3) >= 0.0f && (d5 - d6) >= 0.0f)
+    {
+        float w = (d4 - d3) / ((d4 - d3) + (d5 - d6));
+        float3 closest = t.v1 + w * (t.v2-t.v1);
+        float3 diff = p - closest;
+        return dotVec3(diff,diff);
+    }
+
+    float denom = 1.0f / (va + vb + vc);
+    float v = vb * denom;
+    float w = vc * denom;
+    float3 closest = t.v0 + ab * v + ac * w;
+    float3 diff = p - closest;
+    return dotVec3(diff,diff);
 }
 
 #endif

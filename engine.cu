@@ -14,6 +14,7 @@ __global__ void changeFormat(Particles p,float3 *buf,int number);
 __global__ void emptyGrid(Grid g);
 __global__ void initFMatrices(Particles p,int number);
 __global__ void checkForNANs(Particles p,int number);
+__global__ void makeSDF(float* sdfGrid,const Triangle* __restrict__ triangles,int triangleNumber);
 
 void handleCUDAError(cudaError_t err)
 {
@@ -37,7 +38,6 @@ Engine::Engine(int n, float *h_buffer)
     this->h_buffer = h_buffer;
     blocksPerGrid = (number+THREADS_PER_BLOCK-1) / THREADS_PER_BLOCK;
     initParticles();
-    initSDF();
     initGrid();
 }
 
@@ -48,8 +48,6 @@ Engine::~Engine()
     cudaFree(d_grid_buffer);
     cudaFree(d_values);
     cudaFree(d_cell_offsets);
-    cudaDestroyTextureObject(sdfTex);
-    cudaFreeArray(d_sdfArray);
 }
 
 void Engine::step()
@@ -102,69 +100,15 @@ void Engine::sortParticles()
     cudaFree(d_keys);
 }
 
-std::vector<float> loadSDF(const std::string& filename, int res) {
-    size_t size = res * res * res;
-    std::vector<float> data(size);
 
-    std::ifstream is(filename, std::ios::binary);
-    if (is) {
-        is.read(reinterpret_cast<char*>(data.data()), size * sizeof(float));
-        //memset(data.data(),10.0f,size * sizeof(float));
-    }
-    else
-    {
-        std::cout << "Nie znaleziono!" << std::endl;
-        exit(1);
-    }
-    return data;
-}
-
-
-void Engine::initSDF()
+void Engine::initSDF(std::vector<Triangle> triangles)
 {
-    float sdfSize = 200.0f;
-    float3 sdfOffset = {0.0f,0.0f,0.0f};
-
-    std::vector<float> h_sdfData = loadSDF("sdf_creator/model_cup.sdf",SDF_RESOLUTION);
-    if (h_sdfData.size() < (size_t)SDF_RESOLUTION * SDF_RESOLUTION * SDF_RESOLUTION) {
-        std::cerr << "ERROR: SDF RESOLUTION IS NOT EQUAL TO THE PARAMETER IN COMMON.CUH" << std::endl;
-        exit(1);
-    }
-    cudaChannelFormatDesc channelDesc = cudaCreateChannelDesc<float>();
-    cudaExtent extent = make_cudaExtent(SDF_RESOLUTION,SDF_RESOLUTION,SDF_RESOLUTION);
-    handleCUDAError(cudaMalloc3DArray(&d_sdfArray,&channelDesc,extent));
-    cudaMemcpy3DParms copyParams = {0};
-    copyParams.srcPtr = make_cudaPitchedPtr(h_sdfData.data(),SDF_RESOLUTION*sizeof(float),SDF_RESOLUTION,SDF_RESOLUTION);
-    copyParams.dstArray = d_sdfArray;
-    copyParams.extent = extent;
-    copyParams.kind = cudaMemcpyHostToDevice;
-    handleCUDAError(cudaMemcpy3D(&copyParams));
-    cudaResourceDesc resDesc = {};
-    resDesc.resType = cudaResourceTypeArray;
-    resDesc.res.array.array = d_sdfArray;
-
-    cudaTextureDesc texDesc = {};
-    texDesc.addressMode[0] = cudaAddressModeClamp;
-    texDesc.addressMode[1] = cudaAddressModeClamp;
-    texDesc.addressMode[2] = cudaAddressModeClamp;
-    texDesc.filterMode = cudaFilterModeLinear;
-    texDesc.readMode = cudaReadModeElementType;
-    texDesc.normalizedCoords = true;
-    handleCUDAError(cudaCreateTextureObject(&sdfTex,&resDesc,&texDesc,nullptr));
-    float3 gridCenter = {SIZE_X/2,SIZE_Y/2,SIZE_Z/2};
-    float halfSize = sdfSize/2;
-
-    this->sdfBoxMin = {
-        gridCenter.x + sdfOffset.x - halfSize,
-        gridCenter.y + sdfOffset.y - halfSize,
-        gridCenter.z +sdfOffset.z - halfSize
-    };
-
-    this->sdfBoxMax = {
-        gridCenter.x + sdfOffset.x + halfSize,
-        gridCenter.y + sdfOffset.y + halfSize,
-        gridCenter.z +sdfOffset.z + halfSize
-    };
-
+    Triangle* d_triangles;
+    handleCUDAError(cudaMalloc((void**)&d_sdf_buffer,GRID_SIZE));
+    handleCUDAError(cudaMalloc((void**)&d_triangles,triangles.size()*sizeof(Triangle)));
+    handleCUDAError(cudaMemcpy(d_triangles,triangles.data(),triangles.size()*sizeof(Triangle),cudaMemcpyHostToDevice));
+    makeSDF<<<blocksPerGrid,THREADS_PER_BLOCK>>>(d_sdf_buffer,d_triangles,triangles.size());
+    handleCUDAError(cudaDeviceSynchronize());
+    handleCUDAError(cudaFree(d_triangles));
 }
 

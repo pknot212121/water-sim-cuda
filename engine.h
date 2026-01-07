@@ -18,11 +18,11 @@ class Engine
         ~Engine();
         void step();
         inline Particles getParticles(){ return Particles(d_buffer,number); }
-        inline Grid getGrid(){return Grid(d_grid_buffer,sdfTex,sdfBoxMin,sdfBoxMax);};
+        inline Grid getGrid(){return Grid(d_grid_buffer,d_sdf_buffer);};
         inline float3* getPositions(){return positionsToOpenGL;}
         void initParticles();
         void sortParticles();
-        void initSDF();
+        void initSDF(std::vector<Triangle> triangles);
         void initGrid();
         inline int getNumber(){return number;}
         inline float* getBuffer(){return d_buffer;}
@@ -30,13 +30,10 @@ class Engine
         float *h_buffer;
         float *d_buffer;
         float *d_grid_buffer;
+        float *d_sdf_buffer;
         int *d_values;
         int *d_cell_offsets;
         float3 *positionsToOpenGL;
-        cudaArray_t d_sdfArray;
-        cudaTextureObject_t sdfTex;
-        float3 sdfBoxMin;
-        float3 sdfBoxMax;
         size_t number;
         size_t granularity;
         size_t cellsPerPage;

@@ -13,6 +13,7 @@ Simulation::Simulation() : engine(createEngine()), renderer(engine.getNumber()) 
     // Scalenie wszystkich trójkątów w jeden wektor
     std::vector<Triangle> allTriangles = MergeTriangles(triangleObjects);
     renderer.setTriangles(allTriangles);
+    engine.initSDF(allTriangles);
 }
 
 Simulation::~Simulation() {}
