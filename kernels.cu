@@ -71,7 +71,7 @@ __global__ void p2GTransferScatter(Particles p,Grid g,int number,int* sortedIndi
                             if ((dist.x*normal.x + dist.y*normal.y + dist.z * normal.z) >= 0) validWeightSum += wx[i] * wy[j] * wz[k];
                         }
 
-            if (validWeightSum > 0.1f)
+            if (validWeightSum > 0.3f)
             {
                 normNumber = 1.0f / validWeightSum;
                 if (normNumber>3.0f) normNumber=3.0f;
@@ -244,6 +244,24 @@ __global__ void g2PTransfer(Particles p, Grid g,int number,int *sortedIndices)
     for (int i = 0; i < 9; i++) p.c[i][particleIdx] = totalC[i];
     for (int i = 0; i < 9; i++) p.f[i][particleIdx] = newF[i];
 }
+
+__global__ void makeSDF(float* sdfGrid,const Triangle* __restrict__ triangles,int triangleNumber,Grid g)
+{
+    const int threadIndex = blockIdx.x * blockDim.x + threadIdx.x;
+    if (threadIndex>=SIZE_X*SIZE_Y*SIZE_Z) return;
+    int x = threadIndex % SIZE_X; int y = (threadIndex / SIZE_X) % SIZE_Y; int z = threadIndex / (SIZE_X*SIZE_Y);
+    float3 P = {x*1.0f,y*1.0f,z*1.0f};
+    float totalWindingNumber = 0.0f;
+    float minDistSq = 1e30f;
+
+    for (int i=0;i<triangleNumber;i++)
+    {
+        Triangle t = triangles[i];
+        totalWindingNumber+=calculateSolidAngle(P,t);
+
+    }
+}
+
 
 __global__ void testKernel(Particles p,int number)
 {

@@ -101,6 +101,11 @@ struct __align__(16) Grid
     }
 };
 
+struct Triangle
+{
+    float3 v0, v1, v2;
+};
+
 
 
 /* ---- GLOBAL FUNCTIONS ---- */
@@ -188,6 +193,11 @@ __device__ inline void add3x3(float* A,float* B,float *C)
     for (int i=0;i<9;i++) C[i]=A[i]+B[i];
 }
 
+__device__ inline float dotVec3(float3 A,float3 B)
+{
+    return A.x*B.x+A.y*B.y+A.z*B.z;
+}
+
 __device__ inline void multiply3x3ByConst(float a,float* B,float* C)
 {
     for (int i=0;i<9;i++) C[i]=a*B[i];
@@ -229,12 +239,54 @@ __device__ inline unsigned int expandBits(unsigned int v)
     return v;
 }
 
+__host__ __device__ inline float3 operator-(float3 a,float3 b)
+{
+    return make_float3(a.x-b.x,a.y-b.y,a.z-b.z);
+}
+__host__ __device__ inline float3 operator+(float3 a,float3 b)
+{
+    return make_float3(a.x+b.x,a.y+b.y,a.z+b.z);
+}
+
+// __host__ __device__ inline float3 operator*(float a,float3 b)
+// {
+//     return make_float3()
+// }
 
 __device__ inline unsigned int calculateMorton(unsigned int x, unsigned int y, unsigned int z)
 {
     return (expandBits(z) << 2) | (expandBits(y) << 1) | expandBits(x);
 }
 
+
+__device__ inline float calculateSolidAngle(float3 P,Triangle t)
+{
+    float3 a = {t.v0.x - P.x, t.v0.y - P.y, t.v0.z - P.z};
+    float3 b = {t.v1.x - P.x, t.v1.y - P.y, t.v1.z - P.z};
+    float3 c = {t.v2.x - P.x, t.v2.y - P.y, t.v2.z - P.z};
+    float lenA = norm3df(a.x,a.y,a.z);
+    float lenB = norm3df(b.x,b.y,b.z);
+    float lenC = norm3df(c.x,c.y,c.z);
+
+    float det = a.x*(b.y*c.z - b.z*c.y) + a.y*(b.z*c.x - b.x*c.z) + a.z*(b.x*c.y - b.y*c.x);
+    float div = (lenA*lenB*lenC) + dotVec3(a,b)*lenC + dotVec3(a,c)*lenB + dotVec3(b,c)*lenA;
+    float omega = 2.0f * atan2f(det,div);
+    return omega;
+}
+
+__device__ inline float pointTriangleDistanceSq(float3 p,Triangle t)
+{
+    float3 ab = {t.v1.x - t.v0.x,t.v1.y-t.v0.y,t.v1.z-t.v0.z};
+    float3 ac = {t.v2.x - t.v0.x,t.v2.y-t.v0.y,t.v2.z-t.v0.z};
+    float3 ap = {p.x - t.v0.x,p.y-t.v0.y,p.z-t.v0.z};
+
+    float d1 = dotVec3(ab,ap);
+    float d2 = dotVec3(ac,ap);
+    if (d1 <= 0.0f && d2 <= 0.0f) return dotVec3(ap,ap);
+
+
+
+}
 
 #endif
 

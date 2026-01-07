@@ -5,7 +5,7 @@
 #include <algorithm>
 #include <cuda_runtime.h>
 #include <glm/vec3.hpp>
-
+#include "common.cuh"
 #include "ObjLoader.h"
 
 struct VoxelData
@@ -31,11 +31,6 @@ struct VoxelData
     VoxelData& operator=(VoxelData&& other) noexcept;
 
     ~VoxelData();
-};
-
-struct Triangle
-{
-    float3 v0, v1, v2;
 };
 
 class VoxelEngine

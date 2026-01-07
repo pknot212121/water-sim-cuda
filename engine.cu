@@ -122,7 +122,7 @@ std::vector<float> loadSDF(const std::string& filename, int res) {
 
 void Engine::initSDF()
 {
-    float sdfSize = 100.0f;
+    float sdfSize = 200.0f;
     float3 sdfOffset = {0.0f,0.0f,0.0f};
 
     std::vector<float> h_sdfData = loadSDF("sdf_creator/model_cup.sdf",SDF_RESOLUTION);
