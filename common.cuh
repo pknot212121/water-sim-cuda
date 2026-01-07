@@ -120,7 +120,7 @@ __device__ inline float getSDF(float3 pPos,Grid g)
 
 __device__ inline float3 calculateNormal(float3 pos,Grid g)
 {
-    float eps = 0.1f;
+    float eps = 1.0f;
     float3 normal;
     normal.x = getSDF(make_float3(pos.x + eps, pos.y, pos.z), g) - 
                getSDF(make_float3(pos.x - eps, pos.y, pos.z), g);
