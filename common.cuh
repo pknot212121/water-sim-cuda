@@ -111,16 +111,42 @@ __host__ __device__ inline int getGridIdx(int x,int y,int z)
     return z * SIZE_X*SIZE_Y + y * SIZE_X + x;
 }
 
-__device__ inline float getSDF(float3 pPos,Grid g)
+__device__ inline float getSDF(float3 p,Grid g)
 {
-    int idX = getGridIdx(pPos.x,pPos.y,pPos.z);
-    float signedDist = g.sdf[idX];
-    return signedDist;
+    int i = floorf(p.x), j = floorf(p.y), k = floorf(p.z);
+    float tx = p.x - (float)i, ty = p.y - (float)j, tz = p.z - (float)k;
+
+    auto sample = [&](int x,int y,int z)
+    {
+        x = max(0,min(x,(int)SIZE_X -1));
+        y = max(0,min(y,(int)SIZE_Y -1));
+        z = max(0,min(z,(int)SIZE_Z -1));
+        return g.sdf[getGridIdx(x,y,z)];
+    };
+
+    float N[8] = {
+        sample(i,j,k),sample(i+1,j,k),sample(i,j+1,k),sample(i+1,j+1,k),
+        sample(i,j,k+1),sample(i+1,j,k+1),sample(i,j+1,k+1),sample(i+1,j+1,k+1),
+    };
+
+    float inX[4] = {
+        N[0] * (1.0f - tx) + N[1] * tx,
+        N[2] * (1.0f - tx) + N[3] * tx,
+        N[4] * (1.0f - tx) + N[5] * tx,
+        N[6] * (1.0f - tx) + N[7] * tx,
+    };
+
+    float inY[2] = {
+        inX[0] * (1.0f - ty) + inX[1] * ty,
+        inX[2] * (1.0f - ty) + inX[3] * ty
+    };
+
+    return inY[0] * (1.0f - tz) + inY[1] * tz;
 }
 
 __device__ inline float3 calculateNormal(float3 pos,Grid g)
 {
-    float eps = 1.0f;
+    float eps = 0.1f;
     float3 normal;
     normal.x = getSDF(make_float3(pos.x + eps, pos.y, pos.z), g) - 
                getSDF(make_float3(pos.x - eps, pos.y, pos.z), g);
