@@ -107,7 +107,7 @@ void Engine::initSDF(std::vector<Triangle> triangles)
     handleCUDAError(cudaMalloc((void**)&d_sdf_buffer,GRID_SIZE));
     handleCUDAError(cudaMalloc((void**)&d_triangles,triangles.size()*sizeof(Triangle)));
     handleCUDAError(cudaMemcpy(d_triangles,triangles.data(),triangles.size()*sizeof(Triangle),cudaMemcpyHostToDevice));
-    makeSDF<<<blocksPerGrid,THREADS_PER_BLOCK>>>(d_sdf_buffer,d_triangles,triangles.size());
+    makeSDF<<<GRID_BLOCKS,THREADS_PER_BLOCK>>>(d_sdf_buffer,d_triangles,triangles.size());
     handleCUDAError(cudaDeviceSynchronize());
     handleCUDAError(cudaFree(d_triangles));
 }
