@@ -18,6 +18,8 @@ class Renderer
         ~Renderer();
         void draw(int number,float3* positionsFromCUDA);
         void setupShaders();
+        void setupQuad();
+        void setupFramebuffer();
         void setTriangles(std::vector<Triangle> triangles);
         inline bool isWindowClosed(){return closed;}
     private:
@@ -26,8 +28,9 @@ class Renderer
         float rotationAngleVertical = 0.0f;
         bool closed = false;
 
-        GLuint vbo,vao,fbo,textureColorBuffer;
+        GLuint vbo,vao,fbo,textureColorBuffer,rbo;
         GLuint collVbo,collVao;
+        GLuint quadVbo,quadVao; /* TEMP FOR VIEWING FBO */
         int triCount = 0;
         cudaGraphicsResource* cudaResource;
 };

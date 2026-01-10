@@ -15,7 +15,10 @@ Shader& ResourceManager::LoadShader(const char *vShaderFile, const char *fShader
 
 Shader& ResourceManager::GetShader(std::string name)
 {
-    return Shaders[name];
+    if (Shaders.contains(name))
+        return Shaders[name];
+    std::cerr << "SHADER " << name << "NOT FOUND" << std::endl;
+    exit(1);
 }
 
 void ResourceManager::Clear()
@@ -33,6 +36,16 @@ Shader ResourceManager::loadShaderFromFile(const char *vShaderFile, const char *
     {
         std::ifstream vertexShaderFile(vShaderFile);
         std::ifstream fragmentShaderFile(fShaderFile);
+        if (!vertexShaderFile.is_open())
+        {
+            std::cerr << "ERROR::SHADER: Foiled to read shader files at: " << vShaderFile << std::endl;
+            exit(1);
+        }
+        if (!fragmentShaderFile.is_open())
+        {
+            std::cerr << "ERROR::SHADER: Foiled to read shader files at: " << fShaderFile << std::endl;
+            exit(1);
+        }
         std::stringstream vShaderStream, fShaderStream;
         vShaderStream << vertexShaderFile.rdbuf();
         fShaderStream << fragmentShaderFile.rdbuf();
