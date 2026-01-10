@@ -62,6 +62,7 @@ Renderer::~Renderer()
     glDeleteTextures(1,&textureColorBuffer);
     glDeleteVertexArrays(1,&quadVao);
     glDeleteBuffers(1,&quadVbo);
+    glDeleteTextures(1,&blurTextureBuffer);
     ResourceManager::Clear();
     glfwTerminate();
 }
@@ -95,7 +96,7 @@ void Renderer::draw(int number,float3* positionsFromCUDA)
     s.Use();
     s.SetMatrix4("view",view);
     s.SetMatrix4("projection",projection);
-    s.SetFloat("radius",1.0f);
+    s.SetFloat("radius",2.0f);
     glBindVertexArray(vao);
     glDrawArrays(GL_POINTS,0,number);
     glBindFramebuffer(GL_FRAMEBUFFER,0);
@@ -104,15 +105,37 @@ void Renderer::draw(int number,float3* positionsFromCUDA)
 
 
     glDisable(GL_DEPTH_TEST);
+    glBindFramebuffer(GL_FRAMEBUFFER,blurFbo);
+    glClearColor(99999.0f, 99999.0f, 99999.0f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
+    Shader &blurShader = ResourceManager::GetShader("blur");
+    blurShader.Use();
+    blurShader.SetFloat("filterSize",10.0f);
+    blurShader.SetFloat("texelSize",1.0f / (float)SCREEN_WIDTH);
+    blurShader.SetFloat("depthFalloff",0.01f);
+    blurShader.SetVector2f("blurDir",glm::vec2(1.0f,0.0f));
+    glBindVertexArray(quadVao);
+    glBindTexture(GL_TEXTURE_2D, textureColorBuffer);
+    glDrawArrays(GL_TRIANGLES, 0,6);
+
+
+    glBindFramebuffer(GL_FRAMEBUFFER,fbo);
+    blurShader.SetFloat("texelSize",1.0f / (float)SCREEN_HEIGHT);
+    blurShader.SetVector2f("blurDir",glm::vec2(0.0f,1.0f));
+    glBindTexture(GL_TEXTURE_2D,blurTextureBuffer);
+    glDrawArrays(GL_TRIANGLES,0,6);
+
+
+    glBindFramebuffer(GL_FRAMEBUFFER,0);
     glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
     Shader &screenShader = ResourceManager::GetShader("screen");
     screenShader.Use();
-    glBindVertexArray(quadVao);
+    screenShader.SetVector2f("texelSize",glm::vec2(1.0f / (float)SCREEN_WIDTH, 1.0 / (float)SCREEN_HEIGHT));
+    screenShader.SetMatrix4("projection",projection);
     glBindTexture(GL_TEXTURE_2D, textureColorBuffer);
-    glDrawArrays(GL_TRIANGLES, 0,6);
+    glDrawArrays(GL_TRIANGLES,0,6);
     glBindVertexArray(0);
-
 
 
     glfwSwapBuffers(window);
@@ -124,6 +147,7 @@ void Renderer::setupShaders()
     ResourceManager::LoadShader("shaders/dot.vert","shaders/dot.frag",nullptr,"dot");
     ResourceManager::LoadShader("shaders/ssf_depth.vert","shaders/ssf_depth.frag",nullptr,"spheres");
     ResourceManager::LoadShader("shaders/screen.vert","shaders/screen.frag",nullptr,"screen");
+    ResourceManager::LoadShader("shaders/screen.vert","shaders/ssf_blur.frag",nullptr,"blur");
 }
 
 void Renderer::setupQuad()
@@ -152,18 +176,30 @@ void Renderer::setupFramebuffer()
 {
     glGenFramebuffers(1,&fbo);
     glBindFramebuffer(GL_FRAMEBUFFER,fbo);
-
     glGenRenderbuffers(1,&rbo);
     glBindRenderbuffer(GL_RENDERBUFFER, rbo);
-
     glGenTextures(1,&textureColorBuffer);
     glBindTexture(GL_TEXTURE_2D,textureColorBuffer);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, SCREEN_WIDTH, SCREEN_HEIGHT, 0, GL_RED, GL_FLOAT, NULL);
-    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_NEAREST);
     glFramebufferTexture2D(GL_FRAMEBUFFER,GL_COLOR_ATTACHMENT0,GL_TEXTURE_2D,textureColorBuffer,0);
     glRenderbufferStorage(GL_RENDERBUFFER,GL_DEPTH24_STENCIL8, SCREEN_WIDTH,SCREEN_HEIGHT);
     glFramebufferRenderbuffer(GL_FRAMEBUFFER,GL_DEPTH_STENCIL_ATTACHMENT,GL_RENDERBUFFER,rbo);
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+        std::cerr << "ERROR::FRAMEBUFFER:: Framebuffer is not complete" << std::endl;
+    glBindFramebuffer(GL_FRAMEBUFFER,0);
+
+
+
+    glGenFramebuffers(1,&blurFbo);
+    glBindFramebuffer(GL_FRAMEBUFFER,blurFbo);
+    glGenTextures(1,&blurTextureBuffer);
+    glBindTexture(GL_TEXTURE_2D,blurTextureBuffer);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, SCREEN_WIDTH, SCREEN_HEIGHT, 0, GL_RED, GL_FLOAT, NULL);
+    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MIN_FILTER,GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D,GL_TEXTURE_MAG_FILTER,GL_NEAREST);
+    glFramebufferTexture2D(GL_FRAMEBUFFER,GL_COLOR_ATTACHMENT0,GL_TEXTURE_2D,blurTextureBuffer,0);
     if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
         std::cerr << "ERROR::FRAMEBUFFER:: Framebuffer is not complete" << std::endl;
     glBindFramebuffer(GL_FRAMEBUFFER,0);

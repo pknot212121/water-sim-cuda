@@ -15,5 +15,5 @@ void main() {
     vec3 pixelPosViewSpace = posViewSpace + normal * radius;
     vec4 clipPos = projection * vec4(pixelPosViewSpace,1.0);
     gl_FragDepth = (clipPos.z / clipPos.w) * 0.5 + 0.5;
-    gl_FragColor = vec4(normal * 0.5 + 0.5,1.0);
+    gl_FragColor = vec4(pixelPosViewSpace.z, 0.0,0.0,1.0);
 }
