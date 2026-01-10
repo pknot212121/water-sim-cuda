@@ -30,6 +30,7 @@ class Renderer
 
         GLuint vbo,vao,fbo,textureColorBuffer,rbo;
         GLuint blurFbo, blurTextureBuffer;
+        GLuint backgroundTexture;
         GLuint collVbo,collVao;
         GLuint quadVbo,quadVao; /* TEMP FOR VIEWING FBO */
         int triCount = 0;

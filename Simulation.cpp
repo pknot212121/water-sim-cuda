@@ -23,6 +23,7 @@ void Simulation::run() {
              this->engine.step();
          }
          this->renderer.draw(engine.getNumber(),engine.getPositions());
+         //getchar();
     }
 }
 

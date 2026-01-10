@@ -63,10 +63,11 @@ Renderer::~Renderer()
     glDeleteVertexArrays(1,&quadVao);
     glDeleteBuffers(1,&quadVbo);
     glDeleteTextures(1,&blurTextureBuffer);
+    glDeleteTextures(1,&backgroundTexture);
     ResourceManager::Clear();
     glfwTerminate();
 }
-
+/* I NEED A WRAPPER FOR TEXTURES HOLY SHIT */
 void Renderer::draw(int number,float3* positionsFromCUDA)
 {
     if (glfwWindowShouldClose(window)) {closed=true; return;}
@@ -85,8 +86,8 @@ void Renderer::draw(int number,float3* positionsFromCUDA)
     cudaMemcpy(positionsVBO,positionsFromCUDA,number*sizeof(float3),cudaMemcpyDeviceToDevice);
     cudaGraphicsUnmapResources(1,&cudaResource,0);
 
-
-
+    glDisable(GL_BLEND);
+    glActiveTexture(GL_TEXTURE0);
     glBindFramebuffer(GL_FRAMEBUFFER,fbo);
     glClearColor(99999.0f, 99999.0f, 99999.0f, 1.0f);
     glEnable(GL_DEPTH_TEST);
@@ -120,20 +121,48 @@ void Renderer::draw(int number,float3* positionsFromCUDA)
 
 
     glBindFramebuffer(GL_FRAMEBUFFER,fbo);
+    glClearColor(99999.0f, 99999.0f, 99999.0f, 1.0f);
+    glClear(GL_COLOR_BUFFER_BIT);
     blurShader.SetFloat("texelSize",1.0f / (float)SCREEN_HEIGHT);
     blurShader.SetVector2f("blurDir",glm::vec2(0.0f,1.0f));
     glBindTexture(GL_TEXTURE_2D,blurTextureBuffer);
     glDrawArrays(GL_TRIANGLES,0,6);
-
+    glBindVertexArray(0);
 
     glBindFramebuffer(GL_FRAMEBUFFER,0);
     glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glEnable(GL_DEPTH_TEST);
+
+    if (triCount > 0)
+    {
+        Shader &triShader = ResourceManager::GetShader("dot");
+        triShader.Use();
+        auto mvp = projection * view;
+        triShader.SetMatrix4("mvp",mvp);
+        glBindVertexArray(collVao);
+        glDrawArrays(GL_TRIANGLES,0,triCount);
+        glBindVertexArray(0);
+    }
+
+    glBindTexture(GL_TEXTURE_2D,backgroundTexture);
+    glCopyTexSubImage2D(GL_TEXTURE_2D,0,0,0,0,0,SCREEN_WIDTH,SCREEN_HEIGHT);
+    glDisable(GL_DEPTH_TEST);
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
     Shader &screenShader = ResourceManager::GetShader("screen");
     screenShader.Use();
     screenShader.SetVector2f("texelSize",glm::vec2(1.0f / (float)SCREEN_WIDTH, 1.0 / (float)SCREEN_HEIGHT));
     screenShader.SetMatrix4("projection",projection);
+    glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, textureColorBuffer);
+    glActiveTexture(GL_TEXTURE1);
+    glBindTexture(GL_TEXTURE_2D,backgroundTexture);
+    screenShader.SetInteger("screenTexture",0);
+    screenShader.SetInteger("backgroundTexture",1);
+
+    glBindVertexArray(quadVao);
     glDrawArrays(GL_TRIANGLES,0,6);
     glBindVertexArray(0);
 
@@ -203,6 +232,13 @@ void Renderer::setupFramebuffer()
     if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
         std::cerr << "ERROR::FRAMEBUFFER:: Framebuffer is not complete" << std::endl;
     glBindFramebuffer(GL_FRAMEBUFFER,0);
+
+
+    glGenTextures(1, &backgroundTexture);
+    glBindTexture(GL_TEXTURE_2D, backgroundTexture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, SCREEN_WIDTH, SCREEN_HEIGHT, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 }
 
 void Renderer::setTriangles(std::vector<Triangle> triangles)
