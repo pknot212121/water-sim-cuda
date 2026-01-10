@@ -9,7 +9,13 @@ glm::mat4 projection = glm::perspective(glm::radians(45.0f),(float)SCREEN_WIDTH/
 glm::mat4 view = glm::lookAt(glm::vec3(SIZE_X/2,SIZE_Y/2,SIZE_Z*2),glm::vec3(SIZE_X/2,SIZE_Y/2,SIZE_Z/2),glm::vec3(0.0f,1.0f,0.0f));
 glm::mat4 model = glm::mat4(1.0f);
 
-
+void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
+{
+    if (button == GLFW_MOUSE_BUTTON_LEFT)
+    {
+        std::cout << "AAAA" << std::endl;
+    }
+}
 
 Renderer::Renderer(int number)
 {
@@ -17,9 +23,6 @@ Renderer::Renderer(int number)
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-#ifdef __APPLE__
-    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
-#endif
     glfwWindowHint(GLFW_RESIZABLE, false);
     window = glfwCreateWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Water", nullptr, nullptr);
     glfwMakeContextCurrent(window);
@@ -28,6 +31,7 @@ Renderer::Renderer(int number)
     {
         std::cout << "Failed to initialize GLAD" << std::endl;
     }
+    glfwSetMouseButtonCallback(window, mouse_button_callback);
     glViewport(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -58,6 +62,11 @@ Renderer::~Renderer()
 void Renderer::draw(int number,float3* positionsFromCUDA)
 {
     if (glfwWindowShouldClose(window)) {closed=true; return;}
+    float rotationSpeed = 0.05f;
+
+    if (glfwGetKey(window,GLFW_KEY_A) == GLFW_PRESS) rotationAngle += rotationSpeed;
+    if (glfwGetKey(window,GLFW_KEY_D) == GLFW_PRESS) rotationAngle -= rotationSpeed;
+
     float3* positionsVBO;
     size_t numBytes;
 
@@ -72,7 +81,15 @@ void Renderer::draw(int number,float3* positionsFromCUDA)
 
     Shader &s = ResourceManager::GetShader("dot");
     s.Use();
-    glm::mat4 mvp = projection * view;
+
+    glm::vec3 center(SIZE_X / 2.0f, SIZE_Y / 2.0f, SIZE_Z / 2.0f);
+    auto model = glm::mat4(1.0f);
+    model = glm::translate(model,center);
+    model = glm::rotate(model,rotationAngle,glm::vec3(0,1,0));
+    model = glm::translate(model,-center);
+
+
+    glm::mat4 mvp = projection * view * model;
     s.SetMatrix4("mvp",mvp);
 
     if (triCount > 0 )

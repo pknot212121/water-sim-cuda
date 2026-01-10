@@ -22,6 +22,7 @@ class Renderer
         inline bool isWindowClosed(){return closed;}
     private:
         GLFWwindow* window;
+        float rotationAngle = 0.0f;
         bool closed = false;
         GLuint vbo,vao,shaderProgram;
         GLuint collVbo,collVao;
