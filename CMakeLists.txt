@@ -19,7 +19,11 @@ add_executable(water
         kernels.cu
         renderer.cpp
         renderer.h
-        renderer.h)
+        renderer.h
+        shader.cpp
+        shader.h
+        resource_manager.h
+        resource_manager.cpp)
 
 # --- Windows Compatibility Fixes ---
 if(MSVC)

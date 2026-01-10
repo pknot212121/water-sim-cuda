@@ -5,17 +5,6 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
-/* ---- WILL MAKE A SHADER FILE WRAPPER LATER ---- */
-const char* vertexShaderSource = "#version 330 core\n"
-"layout (location = 0) in vec3 aPos;\n"
-"uniform mat4 mvp;\n"
-"void main() { gl_Position = mvp * vec4(aPos,1.0); }\0";
-
-const char* fragmentShaderSource = "#version 330 core\n"
-"out vec4 FragColor;\n"
-"uniform vec4 uColor;\n"
-"void main() { FragColor = uColor; }\0";
-
 glm::mat4 projection = glm::perspective(glm::radians(45.0f),(float)SCREEN_WIDTH/SCREEN_HEIGHT,0.1f,5000.0f);
 glm::mat4 view = glm::lookAt(glm::vec3(SIZE_X/2,SIZE_Y/2,SIZE_Z*2),glm::vec3(SIZE_X/2,SIZE_Y/2,SIZE_Z/2),glm::vec3(0.0f,1.0f,0.0f));
 glm::mat4 model = glm::mat4(1.0f);
@@ -62,6 +51,7 @@ Renderer::~Renderer()
     cudaGraphicsUnregisterResource(cudaResource);
     glDeleteBuffers(1,&vbo);
     glDeleteVertexArrays(1,&vao);
+    ResourceManager::Clear();
     glfwTerminate();
 }
 
@@ -71,37 +61,31 @@ void Renderer::draw(int number,float3* positionsFromCUDA)
     float3* positionsVBO;
     size_t numBytes;
 
-
-
     cudaGraphicsMapResources(1,&cudaResource,0);
     cudaGraphicsResourceGetMappedPointer((void**)&positionsVBO, &numBytes,cudaResource);
-
     cudaMemcpy(positionsVBO,positionsFromCUDA,number*sizeof(float3),cudaMemcpyDeviceToDevice);
-
     cudaGraphicsUnmapResources(1,&cudaResource,0);
 
     glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
-    //glEnable(GL_DEPTH_TEST);
-    glClear(GL_COLOR_BUFFER_BIT);
+    glEnable(GL_DEPTH_TEST);
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-    glUseProgram(shaderProgram);
-
+    Shader &s = ResourceManager::GetShader("dot");
+    s.Use();
     glm::mat4 mvp = projection * view;
-    GLuint mvpLoc = glGetUniformLocation(shaderProgram,"mvp");
-    glUniformMatrix4fv(mvpLoc,1,GL_FALSE,glm::value_ptr(mvp));
-
-    GLuint colorLoc = glGetUniformLocation(shaderProgram,"uColor");
+    s.SetMatrix4("mvp",mvp);
 
     if (triCount > 0 )
     {
-        glUniform4f(colorLoc,0.5f,0.5f,0.5f,1.0f);
+        s.SetVector4f("uColor",glm::vec4(0.5f,0.5f,0.5f,1.0f));
         glBindVertexArray(collVao);
-        glPolygonMode(GL_FRONT_AND_BACK,GL_LINE);
+        //glPolygonMode(GL_FRONT_AND_BACK,GL_LINE);
         glDrawArrays(GL_TRIANGLES,0,triCount);
         glBindVertexArray(0);
     }
 
-    glUniform4f(colorLoc,0.0f,0.5f,1.0f,1.0f);
+    s.SetVector4f("uColor",glm::vec4(0.0f,0.5f,1.0f,1.0f));
+
     glPointSize(3.0f);
     glBindVertexArray(vao);
 
@@ -114,34 +98,7 @@ void Renderer::draw(int number,float3* positionsFromCUDA)
 
 void Renderer::setupShaders()
 {
-    GLuint vertexShader = glCreateShader(GL_VERTEX_SHADER);
-    glShaderSource(vertexShader,1,&vertexShaderSource,NULL);
-    glCompileShader(vertexShader);
-    GLint success;
-    glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &success);
-    if (!success) {
-        char infoLog[512];
-        glGetShaderInfoLog(vertexShader, 512, NULL, infoLog);
-        std::cout << "ERROR::SHADER::VERTEX::COMPILATION_FAILED\n" << infoLog << std::endl;
-    }
-
-    GLuint fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
-    glShaderSource(fragmentShader,1,&fragmentShaderSource,NULL);
-    glCompileShader(fragmentShader);
-    glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &success);
-    if (!success) {
-        char infoLog[512];
-        glGetShaderInfoLog(fragmentShader, 512, NULL, infoLog);
-        std::cout << "ERROR::SHADER::FRAGMENT::COMPILATION_FAILED\n" << infoLog << std::endl;
-    }
-
-    shaderProgram = glCreateProgram();
-    glAttachShader(shaderProgram,vertexShader);
-    glAttachShader(shaderProgram,fragmentShader);
-    glLinkProgram(shaderProgram);
-
-    glDeleteShader(vertexShader);
-    glDeleteShader(fragmentShader);
+    ResourceManager::LoadShader("shaders/dot.vert","shaders/dot.frag",nullptr,"dot");
 }
 
 void Renderer::setTriangles(std::vector<Triangle> triangles)

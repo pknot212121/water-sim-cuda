@@ -6,6 +6,7 @@
 #include "VoxelEngine.h"
 
 #include "common.cuh"
+#include "resource_manager.h"
 
 constexpr int SCREEN_WIDTH = 800;
 constexpr int SCREEN_HEIGHT = 600;

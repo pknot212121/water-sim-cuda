@@ -5,6 +5,7 @@ Simulation::Simulation() : engine(createEngine()), renderer(engine.getNumber()) 
 {
     std::vector<std::vector<Triangle>> triangleObjects = {
         Prepare_triangles("models/Glass_Cup.obj",0.6f,{0.0f,0.0f,0.0f}),
+        Prepare_triangles("models/Glass_Cup.obj",0.6f,{50.0f,-50.0f,0.0f})
     };
 
     std::vector<Triangle> allTriangles = MergeTriangles(triangleObjects);
@@ -16,13 +17,12 @@ Simulation::~Simulation() {}
 
 /* --- HAS TO BE DONE IN THIS ORDER - OTHERWISE WILL NOT WORK! ---- */
 void Simulation::run() {
-    while (!renderer.isWindowClosed()) {
-        for (int i=0;i<SUBSTEPS;i++)
-        {
-            this->engine.step();
-        }
-        this->renderer.draw(engine.getNumber(),engine.getPositions());
-        //getchar();
+     while (!renderer.isWindowClosed()) {
+         for (int i=0;i<SUBSTEPS;i++)
+         {
+             this->engine.step();
+         }
+         this->renderer.draw(engine.getNumber(),engine.getPositions());
     }
 }
 
@@ -33,7 +33,7 @@ Engine Simulation::createEngine() {
 
 
     std::vector<VoxelData> voxelObjects = {
-        Prepare_object("models/test.obj"),
+        Prepare_object("models/test.obj",1.0f),
     };
 
     VoxelData combinedVoxelData = MergeVoxelData(voxelObjects);
