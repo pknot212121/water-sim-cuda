@@ -25,7 +25,8 @@ class Renderer
         float rotationAngle = 0.0f;
         float rotationAngleVertical = 0.0f;
         bool closed = false;
-        GLuint vbo,vao,shaderProgram;
+
+        GLuint vbo,vao,fbo,textureColorBuffer;
         GLuint collVbo,collVao;
         int triCount = 0;
         cudaGraphicsResource* cudaResource;
