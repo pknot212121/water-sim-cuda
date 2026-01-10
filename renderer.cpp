@@ -140,6 +140,7 @@ void Renderer::draw(int number,float3* positionsFromCUDA)
         triShader.Use();
         auto mvp = projection * view;
         triShader.SetMatrix4("mvp",mvp);
+        triShader.SetVector4f("uColor",glm::vec4(0.5f,0.5f,0.5f,1.0f));
         glBindVertexArray(collVao);
         glDrawArrays(GL_TRIANGLES,0,triCount);
         glBindVertexArray(0);
@@ -147,7 +148,7 @@ void Renderer::draw(int number,float3* positionsFromCUDA)
 
     glBindTexture(GL_TEXTURE_2D,backgroundTexture);
     glCopyTexSubImage2D(GL_TEXTURE_2D,0,0,0,0,0,SCREEN_WIDTH,SCREEN_HEIGHT);
-    glDisable(GL_DEPTH_TEST);
+    glEnable(GL_DEPTH_TEST);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 

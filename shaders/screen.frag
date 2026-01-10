@@ -34,6 +34,9 @@ void main() {
     float diff = max(dot(normal,lightDir),0.0);
     float spec = pow(max(dot(reflect(-lightDir, normal), vec3(0.0, 0.0, 1.0)), 0.0), 128.0);
 
+    vec4 clipPos = projection * vec4(posCenter,1.0);
+    float ndcDepth = clipPos.z / clipPos.w;
+    gl_FragDepth = ndcDepth * 0.5 + 0.5;
 
     vec3 waterColor = vec3(0.1,0.5,0.8);
 
