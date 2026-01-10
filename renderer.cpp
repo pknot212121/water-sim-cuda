@@ -66,6 +66,8 @@ void Renderer::draw(int number,float3* positionsFromCUDA)
 
     if (glfwGetKey(window,GLFW_KEY_A) == GLFW_PRESS) rotationAngle += rotationSpeed;
     if (glfwGetKey(window,GLFW_KEY_D) == GLFW_PRESS) rotationAngle -= rotationSpeed;
+    if (glfwGetKey(window,GLFW_KEY_W) == GLFW_PRESS) rotationAngleVertical += rotationSpeed;
+    if (glfwGetKey(window,GLFW_KEY_S) == GLFW_PRESS) rotationAngleVertical -= rotationSpeed;
 
     float3* positionsVBO;
     size_t numBytes;
@@ -86,6 +88,7 @@ void Renderer::draw(int number,float3* positionsFromCUDA)
     auto model = glm::mat4(1.0f);
     model = glm::translate(model,center);
     model = glm::rotate(model,rotationAngle,glm::vec3(0,1,0));
+    model = glm::rotate(model,rotationAngleVertical,glm::vec3(1,0,0));
     model = glm::translate(model,-center);
 
 
