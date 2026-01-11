@@ -4,8 +4,8 @@
 Simulation::Simulation() : engine(createEngine()), renderer(engine.getNumber()) // Initialize engine with 1 million particles
 {
     std::vector<std::vector<Triangle>> triangleObjects = {
-        Prepare_triangles("models/Glass_Cup.obj",0.6f,{0.0f,0.0f,0.0f}),
-        Prepare_triangles("models/Glass_Cup.obj",0.6f,{50.0f,-50.0f,0.0f})
+        Prepare_triangles("models/Glass_Cup.obj",76.8f,{0.0f,0.0f,0.0f}),
+        Prepare_triangles("models/Glass_Cup.obj",76.8f,{50.0f,-50.0f,0.0f})
     };
 
     std::vector<Triangle> allTriangles = MergeTriangles(triangleObjects);
@@ -34,7 +34,7 @@ Engine Simulation::createEngine() {
 
 
     std::vector<VoxelData> voxelObjects = {
-        Prepare_object("models/test.obj",1.0f),
+        Prepare_object("models/Glass_Cup.obj",64.0f),
     };
 
     VoxelData combinedVoxelData = MergeVoxelData(voxelObjects);
@@ -53,7 +53,7 @@ VoxelData Simulation::Prepare_object(const std::string& objPath, float scale, fl
     if (!objData.success)
         throw std::runtime_error("Failed to load obj data");
 
-    VoxelData voxelData = voxelEngine.voxelize(objData, RESOLUTION);
+    VoxelData voxelData = voxelEngine.voxelize(objData, 100);
     if (voxelData.count < 1)
         throw std::runtime_error("Failed to load voxel data");
 
