@@ -144,6 +144,13 @@ VoxelData VoxelEngine::voxelize(const ObjData& objData, float resolution)
     std::cout << "Bounding box: (" << bbox.min.x << ", " << bbox.min.y << ", " << bbox.min.z << ") to ("
               << bbox.max.x << ", " << bbox.max.y << ", " << bbox.max.z << ")" << std::endl;
 
+    //Calculate resolution
+    float sizeX = bbox.max.x - bbox.min.x;
+    float sizeY = bbox.max.y - bbox.min.y;
+    float sizeZ = bbox.max.z - bbox.min.z;
+    float maxsize = std::max(sizeX, std::max(sizeY, sizeZ));
+    resolution = maxsize / resolution;
+
     // Calculate grid dimensions
     int gridX = (int)std::ceil((bbox.max.x - bbox.min.x) / resolution);
     int gridY = (int)std::ceil((bbox.max.y - bbox.min.y) / resolution);
@@ -334,7 +341,31 @@ void VoxelEngine::normalize(VoxelData& data, float normalizeSize, float scale, c
               << normalizeSize * 0.5f << ", "
               << normalizeSize * 0.5f << ")" << std::endl;
 
-    // Step 4: Scale from center of normalized space
+    // Step 4: Scale to target size on grid from center of normalized space
+    // Find current dimensions after normalization
+    float currentMinX = data.pos[0][0], currentMaxX = data.pos[0][0];
+    float currentMinY = data.pos[1][0], currentMaxY = data.pos[1][0];
+    float currentMinZ = data.pos[2][0], currentMaxZ = data.pos[2][0];
+
+    for (size_t i = 0; i < data.count; i++)
+    {
+        currentMinX = std::min(currentMinX, data.pos[0][i]);
+        currentMaxX = std::max(currentMaxX, data.pos[0][i]);
+        currentMinY = std::min(currentMinY, data.pos[1][i]);
+        currentMaxY = std::max(currentMaxY, data.pos[1][i]);
+        currentMinZ = std::min(currentMinZ, data.pos[2][i]);
+        currentMaxZ = std::max(currentMaxZ, data.pos[2][i]);
+    }
+
+    float currentSizeX = currentMaxX - currentMinX;
+    float currentSizeY = currentMaxY - currentMinY;
+    float currentSizeZ = currentMaxZ - currentMinZ;
+    float currentMaxDim = max3(currentSizeX, currentSizeY, currentSizeZ);
+
+    // Calculate scale factor: scale parameter is the target size for the longest dimension
+    float targetMaxDimension = scale;
+    float scaleFactorToTarget = (currentMaxDim > 1e-6f) ? (targetMaxDimension / currentMaxDim) : 1.0f;
+
     float3 scaleCenter = {normalizeSize * 0.5f, normalizeSize * 0.5f, normalizeSize * 0.5f};
 
     for (size_t i = 0; i < data.count; i++)
@@ -344,10 +375,10 @@ void VoxelEngine::normalize(VoxelData& data, float normalizeSize, float scale, c
         data.pos[1][i] -= scaleCenter.y;
         data.pos[2][i] -= scaleCenter.z;
 
-        // Apply scale
-        data.pos[0][i] *= scale;
-        data.pos[1][i] *= scale;
-        data.pos[2][i] *= scale;
+        // Apply scale to reach target size
+        data.pos[0][i] *= scaleFactorToTarget;
+        data.pos[1][i] *= scaleFactorToTarget;
+        data.pos[2][i] *= scaleFactorToTarget;
 
         // Translate back
         data.pos[0][i] += scaleCenter.x;
@@ -355,7 +386,8 @@ void VoxelEngine::normalize(VoxelData& data, float normalizeSize, float scale, c
         data.pos[2][i] += scaleCenter.z;
     }
 
-    std::cout << "  After scaling by " << scale << "x" << std::endl;
+    std::cout << "  After scaling: longest dimension = " << targetMaxDimension
+              << " (scale factor: " << scaleFactorToTarget << "x)" << std::endl;
 
     // Step 5: Apply displacement
     for (size_t i = 0; i < data.count; i++)
@@ -779,7 +811,39 @@ void VoxelEngine::normalize(std::vector<Triangle>& triangles, float normalizeSiz
               << normalizeSize * 0.5f << ", "
               << normalizeSize * 0.5f << ")" << std::endl;
 
-    // Step 4: Scale from center of normalized space
+    // Step 4: Scale to target size on grid from center of normalized space
+    // Find current dimensions after normalization
+    float currentMinX = triangles[0].v0.x, currentMaxX = triangles[0].v0.x;
+    float currentMinY = triangles[0].v0.y, currentMaxY = triangles[0].v0.y;
+    float currentMinZ = triangles[0].v0.z, currentMaxZ = triangles[0].v0.z;
+
+    for (const auto& tri : triangles)
+    {
+        currentMinX = min3(currentMinX, tri.v0.x, tri.v1.x);
+        currentMinX = std::min(currentMinX, tri.v2.x);
+        currentMaxX = max3(currentMaxX, tri.v0.x, tri.v1.x);
+        currentMaxX = std::max(currentMaxX, tri.v2.x);
+
+        currentMinY = min3(currentMinY, tri.v0.y, tri.v1.y);
+        currentMinY = std::min(currentMinY, tri.v2.y);
+        currentMaxY = max3(currentMaxY, tri.v0.y, tri.v1.y);
+        currentMaxY = std::max(currentMaxY, tri.v2.y);
+
+        currentMinZ = min3(currentMinZ, tri.v0.z, tri.v1.z);
+        currentMinZ = std::min(currentMinZ, tri.v2.z);
+        currentMaxZ = max3(currentMaxZ, tri.v0.z, tri.v1.z);
+        currentMaxZ = std::max(currentMaxZ, tri.v2.z);
+    }
+
+    float currentSizeX = currentMaxX - currentMinX;
+    float currentSizeY = currentMaxY - currentMinY;
+    float currentSizeZ = currentMaxZ - currentMinZ;
+    float currentMaxDim = max3(currentSizeX, currentSizeY, currentSizeZ);
+
+    // Calculate scale factor: scale parameter is the target size for the longest dimension
+    float targetMaxDimension = scale;
+    float scaleFactorToTarget = (currentMaxDim > 1e-6f) ? (targetMaxDimension / currentMaxDim) : 1.0f;
+
     float3 scaleCenter = {normalizeSize * 0.5f, normalizeSize * 0.5f, normalizeSize * 0.5f};
 
     auto scaleVertex = [&](float3& vertex) {
@@ -788,10 +852,10 @@ void VoxelEngine::normalize(std::vector<Triangle>& triangles, float normalizeSiz
         vertex.y -= scaleCenter.y;
         vertex.z -= scaleCenter.z;
 
-        // Apply scale
-        vertex.x *= scale;
-        vertex.y *= scale;
-        vertex.z *= scale;
+        // Apply scale to reach target size
+        vertex.x *= scaleFactorToTarget;
+        vertex.y *= scaleFactorToTarget;
+        vertex.z *= scaleFactorToTarget;
 
         // Translate back
         vertex.x += scaleCenter.x;
@@ -806,7 +870,8 @@ void VoxelEngine::normalize(std::vector<Triangle>& triangles, float normalizeSiz
         scaleVertex(tri.v2);
     }
 
-    std::cout << "  After scaling by " << scale << "x" << std::endl;
+    std::cout << "  After scaling: longest dimension = " << targetMaxDimension
+              << " (scale factor: " << scaleFactorToTarget << "x)" << std::endl;
 
     // Step 5: Apply displacement
     for (auto& tri : triangles)
