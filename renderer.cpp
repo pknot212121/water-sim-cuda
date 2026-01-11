@@ -17,6 +17,16 @@ void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
     }
 }
 
+void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
+{
+
+    Renderer* renderer = static_cast<Renderer*>(glfwGetWindowUserPointer(window));
+    if (renderer)
+    {
+        renderer->handleScroll(yoffset);
+    }
+}
+
 Renderer::Renderer(int number)
 {
     glfwInit();
@@ -31,7 +41,12 @@ Renderer::Renderer(int number)
     {
         std::cout << "Failed to initialize GLAD" << std::endl;
     }
+
+
+    glfwSetWindowUserPointer(window, this);
     glfwSetMouseButtonCallback(window, mouse_button_callback);
+    glfwSetScrollCallback(window, scroll_callback);
+
     glViewport(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
     //glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -78,6 +93,21 @@ void Renderer::draw(int number,float3* positionsFromCUDA)
     if (glfwGetKey(window,GLFW_KEY_W) == GLFW_PRESS) rotationAngleVertical += rotationSpeed;
     if (glfwGetKey(window,GLFW_KEY_S) == GLFW_PRESS) rotationAngleVertical -= rotationSpeed;
 
+
+    if (glfwGetKey(window, GLFW_KEY_P) == GLFW_PRESS)
+    {
+        if (!pKeyWasPressed)
+        {
+            paused = !paused;
+            pKeyWasPressed = true;
+            std::cout << "Simulation " << (paused ? "PAUSED" : "RESUMED") << std::endl;
+        }
+    }
+    else
+    {
+        pKeyWasPressed = false;
+    }
+
     float3* positionsVBO;
     size_t numBytes;
 
@@ -87,6 +117,11 @@ void Renderer::draw(int number,float3* positionsFromCUDA)
     cudaGraphicsUnmapResources(1,&cudaResource,0);
 
     glm::vec3 center(SIZE_X / 2.0f, SIZE_Y / 2.0f, SIZE_Z / 2.0f);
+
+
+    glm::vec3 cameraPos = glm::vec3(SIZE_X / 2.0f, SIZE_Y / 2.0f, zoomDistance);
+    auto view = glm::lookAt(cameraPos, center, glm::vec3(0.0f, 1.0f, 0.0f));
+
     auto model = glm::mat4(1.0f);
     model = glm::translate(model,center);
     model = glm::rotate(model,rotationAngleVertical, glm::vec3(1,0,0));
@@ -271,4 +306,19 @@ void Renderer::setTriangles(std::vector<Triangle> triangles)
 
     glBindBuffer(GL_ARRAY_BUFFER,0);
     glBindVertexArray(0);
+}
+
+void Renderer::handleScroll(double yoffset)
+{
+
+    float zoomSpeed = 5.0f;
+    zoomDistance -= static_cast<float>(yoffset) * zoomSpeed;
+
+
+    float minZoom = 20.0f;
+    float maxZoom = 500.0f;
+    if (zoomDistance < minZoom) zoomDistance = minZoom;
+    if (zoomDistance > maxZoom) zoomDistance = maxZoom;
+
+    std::cout << "Zoom distance: " << zoomDistance << std::endl;
 }

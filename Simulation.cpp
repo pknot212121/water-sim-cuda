@@ -19,9 +19,12 @@ Simulation::~Simulation() {}
 /* --- HAS TO BE DONE IN THIS ORDER - OTHERWISE WILL NOT WORK! ---- */
 void Simulation::run() {
      while (!renderer.isWindowClosed()) {
-         for (int i=0;i<SUBSTEPS;i++)
+         if (!renderer.isPaused())
          {
-             this->engine.step();
+             for (int i=0;i<SUBSTEPS;i++)
+             {
+                 this->engine.step();
+             }
          }
          this->renderer.draw(engine.getNumber(),engine.getPositions());
          //getchar();
@@ -35,7 +38,7 @@ Engine Simulation::createEngine() {
 
 
     std::vector<VoxelData> voxelObjects = {
-        Prepare_object("models/sphere.obj",20.0f, {-50.0f,55.0f,0.0f}),  // scale must be <= SIZE_X (128)
+        Prepare_object("models/sphere.obj",10.0f, {-40.0f,55.0f,0.0f}),  // displacement can be any value - VoxelEngine will clamp to [0,SIZE_X]
         // Prepare_object("models/sphere.obj",48.0f, {50.0f,50.0f,0.0f}),
         //Prepare_object("models/u_pipes_water.obj",100.0f,{0.0f,.0f,0.0f})
     };

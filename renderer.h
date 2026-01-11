@@ -22,11 +22,16 @@ class Renderer
         void setupFramebuffer();
         void setTriangles(std::vector<Triangle> triangles);
         inline bool isWindowClosed(){return closed;}
+        inline bool isPaused(){return paused;}
+        void handleScroll(double yoffset);
     private:
         GLFWwindow* window;
         float rotationAngle = 0.0f;
         float rotationAngleVertical = 0.0f;
         bool closed = false;
+        bool paused = false;
+        bool pKeyWasPressed = false;
+        float zoomDistance = SIZE_Z * 2.0f; // Odległość kamery od centrum
 
         GLuint vbo,vao,fbo,textureColorBuffer,rbo;
         GLuint blurFbo, blurTextureBuffer;
