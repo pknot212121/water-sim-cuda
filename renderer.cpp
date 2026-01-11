@@ -89,6 +89,7 @@ void Renderer::draw(int number,float3* positionsFromCUDA)
     glm::vec3 center(SIZE_X / 2.0f, SIZE_Y / 2.0f, SIZE_Z / 2.0f);
     auto model = glm::mat4(1.0f);
     model = glm::translate(model,center);
+    model = glm::rotate(model,rotationAngleVertical, glm::vec3(1,0,0));
     model = glm::rotate(model,rotationAngle,glm::vec3(0,1,0));
     model = glm::translate(model, -center);
 
@@ -158,7 +159,9 @@ void Renderer::draw(int number,float3* positionsFromCUDA)
 
     glBindTexture(GL_TEXTURE_2D,backgroundTexture);
     glCopyTexSubImage2D(GL_TEXTURE_2D,0,0,0,0,0,SCREEN_WIDTH,SCREEN_HEIGHT);
-    glEnable(GL_DEPTH_TEST);
+
+    if (!PHASING) glEnable(GL_DEPTH_TEST);
+    else glDisable(GL_DEPTH_TEST);
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 

@@ -34,7 +34,7 @@ Engine Simulation::createEngine() {
 
 
     std::vector<VoxelData> voxelObjects = {
-        Prepare_object("models/Glass_Cup.obj",64.0f),
+        Prepare_object("models/sphere.obj",64.0f),
     };
 
     VoxelData combinedVoxelData = MergeVoxelData(voxelObjects);
