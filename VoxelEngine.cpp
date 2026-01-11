@@ -399,94 +399,8 @@ void VoxelEngine::normalize(VoxelData& data, float normalizeSize, float scale, c
 
     std::cout << "  After displacement" << std::endl;
 
-    // Step 6: Filter out voxels that are outside normalization bounds [0, normalizeSize]
-    std::vector<float> validX, validY, validZ;
-    size_t removedCount = 0;
-
-    for (size_t i = 0; i < data.count; i++)
-    {
-        float x = data.pos[0][i];
-        float y = data.pos[1][i];
-        float z = data.pos[2][i];
-
-        // Check if voxel is within bounds
-        if (x >= 0.0f && x <= normalizeSize &&
-            y >= 0.0f && y <= normalizeSize &&
-            z >= 0.0f && z <= normalizeSize)
-        {
-            validX.push_back(x);
-            validY.push_back(y);
-            validZ.push_back(z);
-        }
-        else
-        {
-            removedCount++;
-        }
-    }
-
-    // Replace data with filtered voxels
-    if (validX.size() != data.count)
-    {
-        std::cout << "  Removed " << removedCount << " voxels outside bounds [0, " << normalizeSize << "]" << std::endl;
-        std::cout << "  Remaining voxels: " << validX.size() << std::endl;
-
-        // Free old arrays
-        delete[] data.pos[0];
-        delete[] data.pos[1];
-        delete[] data.pos[2];
-
-        // Allocate new arrays with filtered data
-        data.count = validX.size();
-        if (data.count > 0)
-        {
-            data.pos[0] = new float[data.count];
-            data.pos[1] = new float[data.count];
-            data.pos[2] = new float[data.count];
-
-            std::copy(validX.begin(), validX.end(), data.pos[0]);
-            std::copy(validY.begin(), validY.end(), data.pos[1]);
-            std::copy(validZ.begin(), validZ.end(), data.pos[2]);
-        }
-        else
-        {
-            data.pos[0] = nullptr;
-            data.pos[1] = nullptr;
-            data.pos[2] = nullptr;
-        }
-    }
-
-    // Update bounding box in VoxelData
-    if (data.count > 0)
-    {
-        minX = maxX = data.pos[0][0];
-        minY = maxY = data.pos[1][0];
-        minZ = maxZ = data.pos[2][0];
-
-        for (size_t i = 0; i < data.count; i++)
-        {
-            minX = std::min(minX, data.pos[0][i]);
-            maxX = std::max(maxX, data.pos[0][i]);
-            minY = std::min(minY, data.pos[1][i]);
-            maxY = std::max(maxY, data.pos[1][i]);
-            minZ = std::min(minZ, data.pos[2][i]);
-            maxZ = std::max(maxZ, data.pos[2][i]);
-        }
-
-        data.boundingBoxMin = {minX, minY, minZ};
-        data.boundingBoxMax = {maxX, maxY, maxZ};
-
-        std::cout << "  Final bounds: (" << minX << ", " << minY << ", " << minZ << ") to ("
-                  << maxX << ", " << maxY << ", " << maxZ << ")" << std::endl;
-    }
-    else
-    {
-        data.boundingBoxMin = {0.0f, 0.0f, 0.0f};
-        data.boundingBoxMax = {0.0f, 0.0f, 0.0f};
-        std::cout << "  Warning: All voxels were removed!" << std::endl;
-    }
-
-    // Step 7: Snap voxels to discrete grid with resolution AND expand to neighbors
-    std::cout << "  Snapping voxels to discrete grid (RESOLUTION) with 5x5x5 expansion..." << std::endl;
+    // Step 6: Snap voxels to discrete grid with resolution, expand to neighbors, and clamp to bounds
+    std::cout << "  Snapping voxels to discrete grid (RESOLUTION) with 5x5x5 expansion and clamping to [0, " << normalizeSize << "]..." << std::endl;
 
     const float gridResolution = RESOLUTION;
     int maxGridIndex = (int)(normalizeSize / gridResolution);
@@ -494,6 +408,8 @@ void VoxelEngine::normalize(VoxelData& data, float normalizeSize, float scale, c
 
     // Use a set to store unique grid positions (to remove duplicates)
     std::set<std::tuple<int, int, int>> uniqueGridPositions;
+    size_t voxelsClamped = 0;
+    size_t voxelsOutOfBounds = 0;
 
     for (size_t i = 0; i < data.count; i++)
     {
@@ -502,10 +418,22 @@ void VoxelEngine::normalize(VoxelData& data, float normalizeSize, float scale, c
         int gridY = (int)std::round(data.pos[1][i] / gridResolution);
         int gridZ = (int)std::round(data.pos[2][i] / gridResolution);
 
+        // Track if clamping is needed
+        bool wasClamped = false;
+        if (gridX < 0 || gridX > maxGridIndex ||
+            gridY < 0 || gridY > maxGridIndex ||
+            gridZ < 0 || gridZ > maxGridIndex)
+        {
+            wasClamped = true;
+            voxelsOutOfBounds++;
+        }
+
         // Clamp to valid range [0, maxGridIndex]
         gridX = std::max(0, std::min(maxGridIndex, gridX));
         gridY = std::max(0, std::min(maxGridIndex, gridY));
         gridZ = std::max(0, std::min(maxGridIndex, gridZ));
+
+        if (wasClamped) voxelsClamped++;
 
         // Generate 5x5x5 voxels around the snapped position
         for (int dx = -expansionRadius; dx <= expansionRadius; dx++)
@@ -531,6 +459,12 @@ void VoxelEngine::normalize(VoxelData& data, float normalizeSize, float scale, c
     }
 
     std::cout << "  Original voxel count: " << data.count << std::endl;
+    if (voxelsOutOfBounds > 0)
+    {
+        std::cout << "  Voxels outside grid bounds [0, " << normalizeSize << "]: " << voxelsOutOfBounds
+                  << " (" << (100.0f * voxelsOutOfBounds / data.count) << "%)" << std::endl;
+        std::cout << "  These voxels were clamped to grid boundaries" << std::endl;
+    }
     std::cout << "  After 5x5x5 expansion: " << uniqueGridPositions.size() << " unique grid positions" << std::endl;
     std::cout << "  Expansion factor: " << ((float)uniqueGridPositions.size() / data.count) << "x" << std::endl;
 
