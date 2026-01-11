@@ -30,9 +30,9 @@ constexpr size_t PARTICLE_SIZE = PARTICLE_ATTRIBUTE_COUNT * sizeof(float);
 
 
 /* ---- CONSTS FOR GRID ---- */
-constexpr size_t SIZE_X = 128;
-constexpr size_t SIZE_Y = 128;
-constexpr size_t SIZE_Z = 256;
+constexpr size_t SIZE_X = 64;
+constexpr size_t SIZE_Y = 64;
+constexpr size_t SIZE_Z = 64;
 constexpr size_t PADDING = 2;
 
 constexpr size_t CELL_ATTRIBUTE_COUNT = 4;
@@ -49,11 +49,11 @@ constexpr size_t GRID_NUMBER = SIZE_X*SIZE_Y*SIZE_Z;
 constexpr size_t THREADS_PER_BLOCK = 256;
 
 constexpr float GRAVITY = 9.81f;
-constexpr float DT = 0.002f;
-constexpr float GAMMA = -2.0f;
-constexpr float COMPRESSION = 100.0f;
+constexpr float DT = 0.0005f;
+constexpr float GAMMA = -3.0f;
+constexpr float COMPRESSION = 1000.0f;
 constexpr float RESOLUTION = 1.0f;
-constexpr int SUBSTEPS = 20;
+constexpr int SUBSTEPS = 50;
 constexpr int SHARED_GRID_HEIGHT = 11;
 constexpr int SDF_RESOLUTION = 256;
 constexpr int SHARED_GRID_SIZE = SHARED_GRID_HEIGHT*SHARED_GRID_HEIGHT*SHARED_GRID_HEIGHT;
