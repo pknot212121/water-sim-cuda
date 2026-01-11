@@ -86,6 +86,15 @@ void Renderer::draw(int number,float3* positionsFromCUDA)
     cudaMemcpy(positionsVBO,positionsFromCUDA,number*sizeof(float3),cudaMemcpyDeviceToDevice);
     cudaGraphicsUnmapResources(1,&cudaResource,0);
 
+    glm::vec3 center(SIZE_X / 2.0f, SIZE_Y / 2.0f, SIZE_Z / 2.0f);
+    auto model = glm::mat4(1.0f);
+    model = glm::translate(model,center);
+    model = glm::rotate(model,rotationAngle,glm::vec3(0,1,0));
+    model = glm::translate(model, -center);
+
+    auto worldLightDir = glm::normalize(glm::vec3(0.2f, 10.0f, 0.5f));
+    auto lightDir = glm::vec3(view * glm::vec4(worldLightDir,0.0f));
+
     glDisable(GL_BLEND);
     glActiveTexture(GL_TEXTURE0);
     glBindFramebuffer(GL_FRAMEBUFFER,fbo);
@@ -97,6 +106,7 @@ void Renderer::draw(int number,float3* positionsFromCUDA)
     s.Use();
     s.SetMatrix4("view",view);
     s.SetMatrix4("projection",projection);
+    s.SetMatrix4("model",model);
     s.SetFloat("radius",2.0f);
     glBindVertexArray(vao);
     glDrawArrays(GL_POINTS,0,number);
@@ -138,7 +148,7 @@ void Renderer::draw(int number,float3* positionsFromCUDA)
     {
         Shader &triShader = ResourceManager::GetShader("dot");
         triShader.Use();
-        auto mvp = projection * view;
+        auto mvp = projection * view * model;
         triShader.SetMatrix4("mvp",mvp);
         triShader.SetVector4f("uColor",glm::vec4(0.5f,0.5f,0.5f,1.0f));
         glBindVertexArray(collVao);
@@ -156,6 +166,7 @@ void Renderer::draw(int number,float3* positionsFromCUDA)
     screenShader.Use();
     screenShader.SetVector2f("texelSize",glm::vec2(1.0f / (float)SCREEN_WIDTH, 1.0 / (float)SCREEN_HEIGHT));
     screenShader.SetMatrix4("projection",projection);
+    screenShader.SetVector3f("lightDir",lightDir);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, textureColorBuffer);
     glActiveTexture(GL_TEXTURE1);

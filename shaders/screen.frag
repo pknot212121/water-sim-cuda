@@ -6,6 +6,7 @@ uniform sampler2D screenTexture;
 uniform sampler2D backgroundTexture;
 uniform mat4 projection;
 uniform vec2 texelSize;
+uniform vec3 lightDir;
 
 
 vec3 getPos(vec2 uv) {
@@ -30,7 +31,6 @@ void main() {
     vec2 refractUV = TexCoords + normal.xy * 0.05;
     vec3 bgCol = texture(backgroundTexture, refractUV).rgb;
 
-    vec3 lightDir = normalize(vec3(0.5,0.5,1.0));
     float diff = max(dot(normal,lightDir),0.0);
     float spec = pow(max(dot(reflect(-lightDir, normal), vec3(0.0, 0.0, 1.0)), 0.0), 128.0);
 
