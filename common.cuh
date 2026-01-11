@@ -58,7 +58,7 @@ constexpr int SHARED_GRID_HEIGHT = 11;
 constexpr int SDF_RESOLUTION = 256;
 constexpr int SHARED_GRID_SIZE = SHARED_GRID_HEIGHT*SHARED_GRID_HEIGHT*SHARED_GRID_HEIGHT;
 constexpr size_t GRID_BLOCKS = (GRID_NUMBER + THREADS_PER_BLOCK-1) / THREADS_PER_BLOCK;
-constexpr bool PHASING = false;
+constexpr bool PHASING = true;
 
 
 /* ---- GLOBAL STRUCTURES ---- */

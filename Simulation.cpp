@@ -4,8 +4,9 @@
 Simulation::Simulation() : engine(createEngine()), renderer(engine.getNumber()) // Initialize engine with 1 million particles
 {
     std::vector<std::vector<Triangle>> triangleObjects = {
-        Prepare_triangles("models/Glass_Cup.obj",76.8f,{0.0f,0.0f,0.0f}),
-        Prepare_triangles("models/Glass_Cup.obj",76.8f,{50.0f,-50.0f,0.0f})
+        // Prepare_triangles("models/Glass_Cup.obj",76.8f,{0.0f,0.0f,0.0f}),
+        Prepare_triangles("models/u_pipes.obj",100.0f,{0.0f,0.0f,0.0f})
+        //Prepare_triangles("models/connected_containers.obj",128.0f,{0.0f,0.0f,0.0f})
     };
 
     std::vector<Triangle> allTriangles = MergeTriangles(triangleObjects);
@@ -34,7 +35,9 @@ Engine Simulation::createEngine() {
 
 
     std::vector<VoxelData> voxelObjects = {
-        Prepare_object("models/sphere.obj",64.0f),
+        Prepare_object("models/sphere.obj",20.0f, {-50.0f,55.0f,0.0f}),  // scale must be <= SIZE_X (128)
+        // Prepare_object("models/sphere.obj",48.0f, {50.0f,50.0f,0.0f}),
+        //Prepare_object("models/u_pipes_water.obj",100.0f,{0.0f,.0f,0.0f})
     };
 
     VoxelData combinedVoxelData = MergeVoxelData(voxelObjects);
