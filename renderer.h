@@ -8,8 +8,8 @@
 #include "common.cuh"
 #include "resource_manager.h"
 
-constexpr int SCREEN_WIDTH = 800;
-constexpr int SCREEN_HEIGHT = 600;
+constexpr int SCREEN_WIDTH = 1920;
+constexpr int SCREEN_HEIGHT = 1600;
 
 class Renderer
 {
@@ -24,14 +24,31 @@ class Renderer
         inline bool isWindowClosed(){return closed;}
         inline bool isPaused(){return paused;}
         void handleScroll(double yoffset);
+        void handleResize(int width, int height);
+        void toggleFullscreen();
+        void rebuildFramebuffers();
     private:
         GLFWwindow* window;
         float rotationAngle = 0.0f;
         float rotationAngleVertical = 0.0f;
         bool closed = false;
-        bool paused = false;
+        bool paused = true;
         bool pKeyWasPressed = false;
+        bool wireframeMode = false; // Tryb renderowania konturów
+        bool lKeyWasPressed = false; // Debouncing dla klawisza L
+        bool glassMode = false; // Tryb szklanego renderowania (przeźroczysty)
+        bool gKeyWasPressed = false; // Debouncing dla klawisza G
+        bool f11KeyWasPressed = false; // Debouncing dla klawisza F11
         float zoomDistance = SIZE_Z * 2.0f; // Odległość kamery od centrum
+
+        // Zmienne dla fullscreen i resize
+        bool isFullscreen = false;
+        int currentWidth = SCREEN_WIDTH;
+        int currentHeight = SCREEN_HEIGHT;
+        int windowedWidth = SCREEN_WIDTH;
+        int windowedHeight = SCREEN_HEIGHT;
+        int windowedPosX = 100;
+        int windowedPosY = 100;
 
         GLuint vbo,vao,fbo,textureColorBuffer,rbo;
         GLuint blurFbo, blurTextureBuffer;

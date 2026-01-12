@@ -5,8 +5,15 @@ Simulation::Simulation() : engine(createEngine()), renderer(engine.getNumber()) 
 {
     std::vector<std::vector<Triangle>> triangleObjects = {
         // Prepare_triangles("models/Glass_Cup.obj",76.8f,{0.0f,0.0f,0.0f}),
-        Prepare_triangles("models/u_pipes.obj",100.0f,{0.0f,0.0f,0.0f})
+        //Prepare_triangles("models/box.obj",100.0f,{0.0f,0.0f,0.0f})
         //Prepare_triangles("models/connected_containers.obj",128.0f,{0.0f,0.0f,0.0f})
+        //Prepare_triangles("models/blender/shape_1_1.obj",110.0f,{0.0f,-10.0f,0.0f})
+        //Prepare_triangles("models/blender/shape_2.obj",110.0f,{0.0f,-10.0f,0.0f})
+        //Prepare_triangles("models/blender/pipe_system.obj",110.0f,{0.0f,-10.0f,10.0f})
+        //Prepare_triangles("models/blender/box_open.obj",110.0f,{0.0f,-10.0f,0.0f})
+        Prepare_triangles("models/blender/u.obj",110.0f,{0.0f,-10.0f,0.0f})
+        //Prepare_triangles("models/blender/bottle.obj",110.0f,{0.0f,-10.0f,0.0f})
+
     };
 
     std::vector<Triangle> allTriangles = MergeTriangles(triangleObjects);
@@ -38,9 +45,12 @@ Engine Simulation::createEngine() {
 
 
     std::vector<VoxelData> voxelObjects = {
-        Prepare_object("models/sphere.obj",10.0f, {-40.0f,55.0f,0.0f}),  // displacement can be any value - VoxelEngine will clamp to [0,SIZE_X]
+        //Prepare_object("models/sphere.obj",9.0f, {0.0f,9.0f,0.0f}),  // displacement can be any value - VoxelEngine will clamp to [0,SIZE_X]
+        Prepare_object("models/sphere.obj",35.0f, {0.0f,0.0f,30.0f}),  // displacement can be any value - VoxelEngine will clamp to [0,SIZE_X]
+        //Prepare_object("models/sphere.obj",15.0f, {0.0f,45.0f,25.0f}),  // displacement can be any value - VoxelEngine will clamp to [0,SIZE_X]
+        //Prepare_object("models/sphere.obj",40.0f, {0.0f,40.0f,0.0f}),  // displacement can be any value - VoxelEngine will clamp to [0,SIZE_X]
         // Prepare_object("models/sphere.obj",48.0f, {50.0f,50.0f,0.0f}),
-        //Prepare_object("models/u_pipes_water.obj",100.0f,{0.0f,.0f,0.0f})
+        //Prepare_object("models/u.obj",100.0f,{0.0f,.0f,0.0f})
     };
 
     VoxelData combinedVoxelData = MergeVoxelData(voxelObjects);

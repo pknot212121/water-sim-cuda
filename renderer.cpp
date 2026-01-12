@@ -27,14 +27,23 @@ void scroll_callback(GLFWwindow* window, double xoffset, double yoffset)
     }
 }
 
+void framebuffer_size_callback(GLFWwindow* window, int width, int height)
+{
+    Renderer* renderer = static_cast<Renderer*>(glfwGetWindowUserPointer(window));
+    if (renderer)
+    {
+        renderer->handleResize(width, height);
+    }
+}
+
 Renderer::Renderer(int number)
 {
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
-    glfwWindowHint(GLFW_RESIZABLE, false);
-    window = glfwCreateWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Water", nullptr, nullptr);
+    glfwWindowHint(GLFW_RESIZABLE, true); // Włącz możliwość zmiany rozmiaru
+    window = glfwCreateWindow(SCREEN_WIDTH, SCREEN_HEIGHT, "Water Simulation", nullptr, nullptr);
     glfwMakeContextCurrent(window);
     glfwSwapInterval(1);
     if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
@@ -46,6 +55,7 @@ Renderer::Renderer(int number)
     glfwSetWindowUserPointer(window, this);
     glfwSetMouseButtonCallback(window, mouse_button_callback);
     glfwSetScrollCallback(window, scroll_callback);
+    glfwSetFramebufferSizeCallback(window, framebuffer_size_callback);
 
     glViewport(0, 0, SCREEN_WIDTH, SCREEN_HEIGHT);
     //glEnable(GL_BLEND);
@@ -93,7 +103,7 @@ void Renderer::draw(int number,float3* positionsFromCUDA)
     if (glfwGetKey(window,GLFW_KEY_W) == GLFW_PRESS) rotationAngleVertical += rotationSpeed;
     if (glfwGetKey(window,GLFW_KEY_S) == GLFW_PRESS) rotationAngleVertical -= rotationSpeed;
 
-
+    // Obsługa pauzy - toggle na klawisz P (z debouncing)
     if (glfwGetKey(window, GLFW_KEY_P) == GLFW_PRESS)
     {
         if (!pKeyWasPressed)
@@ -106,6 +116,50 @@ void Renderer::draw(int number,float3* positionsFromCUDA)
     else
     {
         pKeyWasPressed = false;
+    }
+
+    // Obsługa trybu wireframe - toggle na klawisz L (z debouncing)
+    if (glfwGetKey(window, GLFW_KEY_L) == GLFW_PRESS)
+    {
+        if (!lKeyWasPressed)
+        {
+            wireframeMode = !wireframeMode;
+            lKeyWasPressed = true;
+            std::cout << "Wireframe mode " << (wireframeMode ? "ON (contours only)" : "OFF (filled)") << std::endl;
+        }
+    }
+    else
+    {
+        lKeyWasPressed = false;
+    }
+
+    // Obsługa trybu glass - toggle na klawisz G (z debouncing)
+    if (glfwGetKey(window, GLFW_KEY_G) == GLFW_PRESS)
+    {
+        if (!gKeyWasPressed)
+        {
+            glassMode = !glassMode;
+            gKeyWasPressed = true;
+            std::cout << "Glass mode " << (glassMode ? "ON (transparent, water visible)" : "OFF (opaque)") << std::endl;
+        }
+    }
+    else
+    {
+        gKeyWasPressed = false;
+    }
+
+    // Obsługa fullscreen - toggle na klawisz F11 (z debouncing)
+    if (glfwGetKey(window, GLFW_KEY_F11) == GLFW_PRESS)
+    {
+        if (!f11KeyWasPressed)
+        {
+            toggleFullscreen();
+            f11KeyWasPressed = true;
+        }
+    }
+    else
+    {
+        f11KeyWasPressed = false;
     }
 
     float3* positionsVBO;
@@ -158,7 +212,7 @@ void Renderer::draw(int number,float3* positionsFromCUDA)
     Shader &blurShader = ResourceManager::GetShader("blur");
     blurShader.Use();
     blurShader.SetFloat("filterSize",10.0f);
-    blurShader.SetFloat("texelSize",1.0f / (float)SCREEN_WIDTH);
+    blurShader.SetFloat("texelSize",1.0f / (float)currentWidth);
     blurShader.SetFloat("depthFalloff",0.01f);
     blurShader.SetVector2f("blurDir",glm::vec2(1.0f,0.0f));
     glBindVertexArray(quadVao);
@@ -169,31 +223,83 @@ void Renderer::draw(int number,float3* positionsFromCUDA)
     glBindFramebuffer(GL_FRAMEBUFFER,fbo);
     glClearColor(99999.0f, 99999.0f, 99999.0f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
-    blurShader.SetFloat("texelSize",1.0f / (float)SCREEN_HEIGHT);
+    blurShader.SetFloat("texelSize",1.0f / (float)currentHeight);
     blurShader.SetVector2f("blurDir",glm::vec2(0.0f,1.0f));
     glBindTexture(GL_TEXTURE_2D,blurTextureBuffer);
     glDrawArrays(GL_TRIANGLES,0,6);
     glBindVertexArray(0);
 
     glBindFramebuffer(GL_FRAMEBUFFER,0);
-    glClearColor(0.2f, 0.2f, 0.2f, 1.0f);
+    glClearColor(0.85f, 0.9f, 0.95f, 1.0f); // Jasne niebieskawe tło
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glEnable(GL_DEPTH_TEST);
+    glDisable(GL_BLEND); // Wyłącz blending przed renderowaniem obiektów
 
     if (triCount > 0)
     {
+        // Ustaw tryb renderowania (wypełnienie lub kontury)
+        if (wireframeMode)
+        {
+            glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+            glLineWidth(2.0f); // Grubość linii konturów
+        }
+        else
+        {
+            glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+        }
+
         Shader &triShader = ResourceManager::GetShader("dot");
         triShader.Use();
         auto mvp = projection * view * model;
         triShader.SetMatrix4("mvp",mvp);
-        triShader.SetVector4f("uColor",glm::vec4(0.5f,0.5f,0.5f,1.0f));
-        glBindVertexArray(collVao);
-        glDrawArrays(GL_TRIANGLES,0,triCount);
+        triShader.SetMatrix4("model",model);
+        triShader.SetVector3f("worldLightDir",worldLightDir); // Przekaż kierunek światła w world space
+
+        // Konfiguracja dla trybu szklanego
+        if (glassMode)
+        {
+            // Włącz blending dla przezroczystości
+            glEnable(GL_BLEND);
+            glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+            glEnable(GL_CULL_FACE);
+
+            // KROK 1: Rysuj TYLNE ściany NAJPIERW (wewnętrzne)
+            glCullFace(GL_FRONT); // Ukryj przednie, pokaż tylne
+            glDepthMask(GL_FALSE); // NIE zapisuj do depth buffer
+            triShader.SetVector4f("uColor",glm::vec4(0.4f, 0.5f, 0.6f, 0.2f)); // Tylne ściany - bardzo przezroczyste
+            glBindVertexArray(collVao);
+            glDrawArrays(GL_TRIANGLES,0,triCount);
+
+            // KROK 2: Rysuj PRZEDNIE ściany (zewnętrzne) BEZ depth writing - aby woda była widoczna!
+            glCullFace(GL_BACK); // Ukryj tylne, pokaż przednie
+            glDepthMask(GL_FALSE); // NIE zapisuj do depth buffer - KLUCZOWE dla widoczności wody!
+            triShader.SetVector4f("uColor",glm::vec4(0.6f, 0.7f, 0.8f, 0.35f)); // Przednie ściany - przezroczyste
+            glDrawArrays(GL_TRIANGLES,0,triCount);
+
+            // Przywróć ustawienia
+            glDisable(GL_CULL_FACE);
+            glDepthMask(GL_TRUE);
+            glDisable(GL_BLEND);
+        }
+        else
+        {
+            // Normalny tryb nieprzezroczysty
+            triShader.SetVector4f("uColor",glm::vec4(0.5f, 0.5f, 0.5f, 1.0f)); // Nieprzezroczysty szary
+            glBindVertexArray(collVao);
+            glDrawArrays(GL_TRIANGLES,0,triCount);
+        }
+
         glBindVertexArray(0);
+
+        // Przywróć tryb wypełnienia
+        if (wireframeMode)
+        {
+            glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
+        }
     }
 
     glBindTexture(GL_TEXTURE_2D,backgroundTexture);
-    glCopyTexSubImage2D(GL_TEXTURE_2D,0,0,0,0,0,SCREEN_WIDTH,SCREEN_HEIGHT);
+    glCopyTexSubImage2D(GL_TEXTURE_2D,0,0,0,0,0,currentWidth,currentHeight);
 
     if (!PHASING) glEnable(GL_DEPTH_TEST);
     else glDisable(GL_DEPTH_TEST);
@@ -202,7 +308,7 @@ void Renderer::draw(int number,float3* positionsFromCUDA)
 
     Shader &screenShader = ResourceManager::GetShader("screen");
     screenShader.Use();
-    screenShader.SetVector2f("texelSize",glm::vec2(1.0f / (float)SCREEN_WIDTH, 1.0 / (float)SCREEN_HEIGHT));
+    screenShader.SetVector2f("texelSize",glm::vec2(1.0f / (float)currentWidth, 1.0 / (float)currentHeight));
     screenShader.SetMatrix4("projection",projection);
     screenShader.SetVector3f("lightDir",lightDir);
     glActiveTexture(GL_TEXTURE0);
@@ -322,3 +428,94 @@ void Renderer::handleScroll(double yoffset)
 
     std::cout << "Zoom distance: " << zoomDistance << std::endl;
 }
+
+void Renderer::handleResize(int width, int height)
+{
+    currentWidth = width;
+    currentHeight = height;
+
+    glViewport(0, 0, width, height);
+
+    // Aktualizuj projekcję
+    projection = glm::perspective(glm::radians(45.0f), (float)width / (float)height, 0.1f, 5000.0f);
+
+    // Przebuduj framebuffery z nowym rozmiarem
+    rebuildFramebuffers();
+
+    std::cout << "Window resized to: " << width << "x" << height << std::endl;
+}
+
+void Renderer::toggleFullscreen()
+{
+    isFullscreen = !isFullscreen;
+
+    if (isFullscreen)
+    {
+        // Zapisz poprzedni rozmiar i pozycję
+        glfwGetWindowPos(window, &windowedPosX, &windowedPosY);
+        glfwGetWindowSize(window, &windowedWidth, &windowedHeight);
+
+        // Przełącz na fullscreen
+        GLFWmonitor* monitor = glfwGetPrimaryMonitor();
+        const GLFWvidmode* mode = glfwGetVideoMode(monitor);
+        glfwSetWindowMonitor(window, monitor, 0, 0, mode->width, mode->height, mode->refreshRate);
+
+        std::cout << "Fullscreen mode ON (" << mode->width << "x" << mode->height << ")" << std::endl;
+    }
+    else
+    {
+        // Przywróć tryb okienkowy
+        glfwSetWindowMonitor(window, nullptr, windowedPosX, windowedPosY, windowedWidth, windowedHeight, 0);
+
+        std::cout << "Fullscreen mode OFF (windowed " << windowedWidth << "x" << windowedHeight << ")" << std::endl;
+    }
+}
+
+void Renderer::rebuildFramebuffers()
+{
+    // Usuń stare framebuffery
+    glDeleteFramebuffers(1, &fbo);
+    glDeleteRenderbuffers(1, &rbo);
+    glDeleteTextures(1, &textureColorBuffer);
+    glDeleteFramebuffers(1, &blurFbo);
+    glDeleteTextures(1, &blurTextureBuffer);
+    glDeleteTextures(1, &backgroundTexture);
+
+    // Odtwórz framebuffery z aktualnym rozmiarem
+    glGenFramebuffers(1, &fbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, fbo);
+    glGenRenderbuffers(1, &rbo);
+    glBindRenderbuffer(GL_RENDERBUFFER, rbo);
+    glGenTextures(1, &textureColorBuffer);
+    glBindTexture(GL_TEXTURE_2D, textureColorBuffer);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, currentWidth, currentHeight, 0, GL_RED, GL_FLOAT, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, textureColorBuffer, 0);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8, currentWidth, currentHeight);
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT, GL_RENDERBUFFER, rbo);
+
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+        std::cerr << "ERROR::FRAMEBUFFER:: Framebuffer is not complete after resize" << std::endl;
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    glGenFramebuffers(1, &blurFbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, blurFbo);
+    glGenTextures(1, &blurTextureBuffer);
+    glBindTexture(GL_TEXTURE_2D, blurTextureBuffer);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F, currentWidth, currentHeight, 0, GL_RED, GL_FLOAT, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, blurTextureBuffer, 0);
+
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE)
+        std::cerr << "ERROR::FRAMEBUFFER:: Blur framebuffer is not complete after resize" << std::endl;
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+
+    glGenTextures(1, &backgroundTexture);
+    glBindTexture(GL_TEXTURE_2D, backgroundTexture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, currentWidth, currentHeight, 0, GL_RGB, GL_UNSIGNED_BYTE, NULL);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+}
+
