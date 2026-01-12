@@ -151,8 +151,11 @@ __global__ void gridUpdate(Grid g)
     if (mass> 1e-9f)
     {
         velocity.x = momentum.x/mass;
+        velocity.x *= 0.9f;
         velocity.y = momentum.y/mass - GRAVITY*DT;
+        velocity.y *= 0.9f;
         velocity.z = momentum.z/mass;
+        velocity.z *= 0.9f;
 
         if (x<PADDING && velocity.x<0) velocity.x=0.0f;
         if (y<PADDING && velocity.y<0) velocity.y=0.0f;
