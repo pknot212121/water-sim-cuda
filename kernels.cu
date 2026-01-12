@@ -24,7 +24,7 @@ __global__ void p2GTransferScatter(Particles p,Grid g,int number,int* sortedIndi
     #pragma unroll
     for(int i=0; i<9; i++) oldF[i] = p.f[i][particleIdx];
     float J = det3x3(oldF);
-    J = fmaxf(0.1f, fminf(J, 1.1f));
+    J = fmaxf(0.9f, fminf(J, 1.1f));
     float pressure = COMPRESSION * (powf(J,GAMMA) - 1.0f);
     if (pressure < 0.0f) pressure = 0.0f;
     float volume = p.v[particleIdx] * J;
@@ -146,6 +146,7 @@ __global__ void gridUpdate(Grid g)
     const int threadIndex = blockIdx.x * blockDim.x + threadIdx.x;
     int x = threadIndex % SIZE_X; int y = (threadIndex / SIZE_X) % SIZE_Y; int z = threadIndex / (SIZE_X*SIZE_Y);
     float mass = g.mass[threadIndex];
+    float dist = g.sdf[threadIndex];
     float3 momentum = {g.momentum[0][threadIndex],g.momentum[1][threadIndex],g.momentum[2][threadIndex]};
     float3 velocity = {0.0f,0.0f,0.0f};
     if (mass> 1e-9f)
@@ -153,6 +154,33 @@ __global__ void gridUpdate(Grid g)
         velocity.x = momentum.x/mass;
         velocity.y = momentum.y/mass - GRAVITY*DT;
         velocity.z = momentum.z/mass;
+        if (dist < 0.0f)
+        {
+            float3 normal = getNormalAtNode(x, y, z, g);
+            float vDotN = velocity.x * normal.x + velocity.y * normal.y + velocity.z * normal.z;
+            if (vDotN < 0.0f)
+            {
+                velocity.x -= normal.x * vDotN;
+                velocity.y -= normal.y * vDotN;
+                velocity.z -= normal.z * vDotN;
+
+                // float friction = 0.05f;
+                // velocity.x *= (1.0f - friction);
+                // velocity.y *= (1.0f - friction);
+                // velocity.z *= (1.0f - friction);
+            }
+            // if (dist < -1.0f) {
+            //     velocity = {0.0f, 0.0f, 0.0f};
+            // }
+        }
+        // else if (dist < 1.0f)
+        // {
+        //     float factor = dist;
+        //
+        //     velocity.x *= powf(factor,0.1);
+        //     velocity.y *= powf(factor,0.1);
+        //     velocity.z *= sqrt(factor);
+        // }
 
         if (x<PADDING && velocity.x<0) velocity.x=0.0f;
         if (y<PADDING && velocity.y<0) velocity.y=0.0f;
@@ -224,15 +252,20 @@ __global__ void g2PTransfer(Particles p, Grid g,int number,int *sortedIndices)
     if (dist < 0.0f)
     {
         float3 normal = calculateNormal(nextPos, g);
-        nextPos.x -= dist * normal.x;
-        nextPos.y -= dist * normal.y;
-        nextPos.z -= dist * normal.z;
-        float dot = totalVel.x * normal.x + totalVel.y * normal.y + totalVel.z * normal.z;
-        if (dot < 0.0f)
+
+        nextPos.x -= normal.x * dist;
+        nextPos.y -= normal.y * dist;
+        nextPos.z -= normal.z * dist;
+
+
+        float vDotN = totalVel.x * normal.x + totalVel.y * normal.y + totalVel.z * normal.z;
+
+
+        if (vDotN < 0.0f)
         {
-            totalVel.x -= dot * normal.x;
-            totalVel.y -= dot * normal.y;
-            totalVel.z -= dot * normal.z;
+            totalVel.x -= normal.x * vDotN;
+            totalVel.y -= normal.y * vDotN;
+            totalVel.z -= normal.z * vDotN;
         }
     }
 

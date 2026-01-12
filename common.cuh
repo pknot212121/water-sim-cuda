@@ -49,14 +49,14 @@ constexpr size_t GRID_NUMBER = SIZE_X*SIZE_Y*SIZE_Z;
 constexpr size_t THREADS_PER_BLOCK = 256;
 
 constexpr float GRAVITY = 9.81f;
-constexpr float DT = 0.002f;
+constexpr float DT = 0.001f;
 //constexpr float DT = 0.0001f;
 //constexpr float DT = 0.00005f;
 constexpr float GAMMA = -3.0f;
 //constexpr float COMPRESSION = 500.0f;
-constexpr float COMPRESSION = 400.0f;
+constexpr float COMPRESSION = 800.0f;
 constexpr float RESOLUTION = 1.0f;
-constexpr int SUBSTEPS = 10;
+constexpr int SUBSTEPS = 50;
 constexpr int SHARED_GRID_HEIGHT = 11;
 constexpr int SDF_RESOLUTION = 256;
 constexpr int SHARED_GRID_SIZE = SHARED_GRID_HEIGHT*SHARED_GRID_HEIGHT*SHARED_GRID_HEIGHT;
@@ -175,7 +175,15 @@ __device__ __forceinline__ float3 multiplyCxd(
 }
 
 
+__device__ inline float3 getNormalAtNode(int x, int y, int z, Grid g) {
+    float* sdfGrid = g.sdf;
+    float nx = sdfGrid[getGridIdx(min(x+1, (int)SIZE_X-1), y, z)] - sdfGrid[getGridIdx(max(x-1, 0), y, z)];
+    float ny = sdfGrid[getGridIdx(x, min(y+1, (int)SIZE_Y-1), z)] - sdfGrid[getGridIdx(x, max(y-1, 0), z)];
+    float nz = sdfGrid[getGridIdx(x, y, min(z+1, (int)SIZE_Z-1))] - sdfGrid[getGridIdx(x, y, max(z-1, 0))];
 
+    float len = sqrtf(nx*nx + ny*ny + nz*nz) + 1e-9f;
+    return {nx/len, ny/len, nz/len};
+}
 
 __host__ __device__ inline float spline(float x)
 {
