@@ -46,7 +46,7 @@ Engine Simulation::createEngine() {
 
     std::vector<VoxelData> voxelObjects = {
         //Prepare_object("models/sphere.obj",9.0f, {0.0f,9.0f,0.0f}),  // displacement can be any value - VoxelEngine will clamp to [0,SIZE_X]
-        Prepare_object("models/sphere.obj",35.0f, {0.0f,0.0f,25.0f}),  // displacement can be any value - VoxelEngine will clamp to [0,SIZE_X]
+        Prepare_object("models/sphere.obj",35.0f, {0.0f,20.0f,25.0f}),  // displacement can be any value - VoxelEngine will clamp to [0,SIZE_X]
         //Prepare_object("models/sphere.obj",15.0f, {0.0f,45.0f,25.0f}),  // displacement can be any value - VoxelEngine will clamp to [0,SIZE_X]
         //Prepare_object("models/sphere.obj",40.0f, {0.0f,40.0f,0.0f}),  // displacement can be any value - VoxelEngine will clamp to [0,SIZE_X]
         // Prepare_object("models/sphere.obj",48.0f, {50.0f,50.0f,0.0f}),
