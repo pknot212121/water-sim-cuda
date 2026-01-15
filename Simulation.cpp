@@ -55,7 +55,7 @@ Engine Simulation::createEngine() {
 
     VoxelData combinedVoxelData = MergeVoxelData(voxelObjects);
 
-    // Wywołanie process tylko raz na scalonych danych
+
     std::vector<float> combinedResult = voxelPipeline.process(combinedVoxelData);
 
     size_t bufferSize = combinedResult.size();
@@ -111,7 +111,6 @@ VoxelData Simulation::MergeVoxelData(const std::vector<VoxelData>& voxelDataArra
         return VoxelData();
     }
 
-    // Oblicz całkowitą liczbę voxeli
     size_t totalCount = 0;
     for (const auto& voxelData : voxelDataArray) {
         totalCount += voxelData.count;
@@ -122,7 +121,7 @@ VoxelData Simulation::MergeVoxelData(const std::vector<VoxelData>& voxelDataArra
         return VoxelData();
     }
 
-    // Utwórz nowy VoxelData
+
     VoxelData combinedVoxelData;
     combinedVoxelData.count = totalCount;
     combinedVoxelData.resolution = voxelDataArray[0].resolution;
@@ -132,7 +131,7 @@ VoxelData Simulation::MergeVoxelData(const std::vector<VoxelData>& voxelDataArra
 
     std::cout << "MergeVoxelData: Merging " << voxelDataArray.size() << " VoxelData objects, total voxels: " << totalCount << std::endl;
 
-    // Skopiuj dane z każdego VoxelData
+
     size_t offset = 0;
     for (size_t i = 0; i < voxelDataArray.size(); i++) {
         const auto& voxelData = voxelDataArray[i];
@@ -142,7 +141,7 @@ VoxelData Simulation::MergeVoxelData(const std::vector<VoxelData>& voxelDataArra
             continue;
         }
 
-        // Walidacja wskaźników
+
         if (!voxelData.pos[0] || !voxelData.pos[1] || !voxelData.pos[2]) {
             std::cerr << "Error: VoxelData[" << i << "] has null pointers! count=" << voxelData.count << std::endl;
             std::cerr << "  pos[0]=" << voxelData.pos[0] << " pos[1]=" << voxelData.pos[1] << " pos[2]=" << voxelData.pos[2] << std::endl;
@@ -167,17 +166,17 @@ std::vector<Triangle> Simulation::MergeTriangles(const std::vector<std::vector<T
         return std::vector<Triangle>();
     }
 
-    // Oblicz całkowitą liczbę trójkątów
+
     size_t totalCount = 0;
     for (const auto& triangles : triangleArrays) {
         totalCount += triangles.size();
     }
 
-    // Utwórz nowy wektor i zarezerwuj pamięć
+
     std::vector<Triangle> combinedTriangles;
     combinedTriangles.reserve(totalCount);
 
-    // Skopiuj trójkąty z każdego wektora
+
     for (const auto& triangles : triangleArrays) {
         combinedTriangles.insert(combinedTriangles.end(), triangles.begin(), triangles.end());
     }

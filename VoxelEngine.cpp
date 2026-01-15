@@ -10,7 +10,6 @@
 
 #include "common.cuh"
 
-// VoxelData implementation
 VoxelData::VoxelData() : count(0), resolution(0.0f)
 {
     pos[0] = nullptr;
@@ -57,12 +56,10 @@ VoxelData& VoxelData::operator=(const VoxelData& other)
 {
     if (this != &other)
     {
-        // Clean up existing data
         if (pos[0]) delete[] pos[0];
         if (pos[1]) delete[] pos[1];
         if (pos[2]) delete[] pos[2];
 
-        // Copy data
         count = other.count;
         resolution = other.resolution;
         boundingBoxMin = other.boundingBoxMin;
@@ -91,12 +88,10 @@ VoxelData& VoxelData::operator=(VoxelData&& other) noexcept
 {
     if (this != &other)
     {
-        // Clean up existing data
         if (pos[0]) delete[] pos[0];
         if (pos[1]) delete[] pos[1];
         if (pos[2]) delete[] pos[2];
 
-        // Move data
         count = other.count;
         resolution = other.resolution;
         boundingBoxMin = other.boundingBoxMin;
@@ -105,7 +100,6 @@ VoxelData& VoxelData::operator=(VoxelData&& other) noexcept
         pos[1] = other.pos[1];
         pos[2] = other.pos[2];
 
-        // Reset other
         other.pos[0] = nullptr;
         other.pos[1] = nullptr;
         other.pos[2] = nullptr;
@@ -122,7 +116,6 @@ VoxelData::~VoxelData()
 }
 
 
-// VoxelEngine implementation
 VoxelData VoxelEngine::voxelize(const ObjData& objData, float resolution)
 {
     VoxelData voxelData;
@@ -135,7 +128,6 @@ VoxelData VoxelEngine::voxelize(const ObjData& objData, float resolution)
 
     std::cout << "Starting voxelization with resolution: " << resolution << std::endl;
 
-    // Calculate bounding box
     BoundingBox bbox = calculateBoundingBox(objData);
     voxelData.boundingBoxMin = bbox.min;
     voxelData.boundingBoxMax = bbox.max;
@@ -144,35 +136,29 @@ VoxelData VoxelEngine::voxelize(const ObjData& objData, float resolution)
     std::cout << "Bounding box: (" << bbox.min.x << ", " << bbox.min.y << ", " << bbox.min.z << ") to ("
               << bbox.max.x << ", " << bbox.max.y << ", " << bbox.max.z << ")" << std::endl;
 
-    //Calculate resolution
     float sizeX = bbox.max.x - bbox.min.x;
     float sizeY = bbox.max.y - bbox.min.y;
     float sizeZ = bbox.max.z - bbox.min.z;
     float maxsize = std::max(sizeX, std::max(sizeY, sizeZ));
     resolution = maxsize / resolution;
 
-    // Calculate grid dimensions
     int gridX = (int)std::ceil((bbox.max.x - bbox.min.x) / resolution);
     int gridY = (int)std::ceil((bbox.max.y - bbox.min.y) / resolution);
     int gridZ = (int)std::ceil((bbox.max.z - bbox.min.z) / resolution);
 
     std::cout << "Grid dimensions: " << gridX << " x " << gridY << " x " << gridZ << std::endl;
 
-    // Extract triangles from mesh
     std::vector<Triangle> triangles = extractTriangles(objData);
     std::cout << "Number of triangles: " << triangles.size() << std::endl;
 
-    // Initialize a grid of booleans (much faster than storing positions directly)
     size_t totalVoxels = (size_t)gridX * gridY * gridZ;
     std::vector<bool> filled(totalVoxels, false);
     std::cout << "Grid total voxels: " << totalVoxels << std::endl;
 
-    // Loop over triangles and mark filled voxels
     for (size_t triIdx = 0; triIdx < triangles.size(); triIdx++)
     {
         const Triangle& tri = triangles[triIdx];
 
-        // Find triangle's local bounding box in world space
         float triMinX = min3(tri.v0.x, tri.v1.x, tri.v2.x);
         float triMinY = min3(tri.v0.y, tri.v1.y, tri.v2.y);
         float triMinZ = min3(tri.v0.z, tri.v1.z, tri.v2.z);
@@ -180,7 +166,6 @@ VoxelData VoxelEngine::voxelize(const ObjData& objData, float resolution)
         float triMaxY = max3(tri.v0.y, tri.v1.y, tri.v2.y);
         float triMaxZ = max3(tri.v0.z, tri.v1.z, tri.v2.z);
 
-        // Convert triangle bounding box to grid indices
         int minGridX = std::max(0, (int)std::floor((triMinX - bbox.min.x) / resolution));
         int minGridY = std::max(0, (int)std::floor((triMinY - bbox.min.y) / resolution));
         int minGridZ = std::max(0, (int)std::floor((triMinZ - bbox.min.z) / resolution));
@@ -188,14 +173,12 @@ VoxelData VoxelEngine::voxelize(const ObjData& objData, float resolution)
         int maxGridY = std::min(gridY - 1, (int)std::ceil((triMaxY - bbox.min.y) / resolution));
         int maxGridZ = std::min(gridZ - 1, (int)std::ceil((triMaxZ - bbox.min.z) / resolution));
 
-        // Only test voxels in the triangle's local bounding box
         for (int z = minGridZ; z <= maxGridZ; z++)
         {
             for (int y = minGridY; y <= maxGridY; y++)
             {
                 for (int x = minGridX; x <= maxGridX; x++)
                 {
-                    // Calculate voxel AABB
                     float3 voxelMin, voxelMax;
                     voxelMin.x = bbox.min.x + x * resolution;
                     voxelMin.y = bbox.min.y + y * resolution;
@@ -204,7 +187,6 @@ VoxelData VoxelEngine::voxelize(const ObjData& objData, float resolution)
                     voxelMax.y = voxelMin.y + resolution;
                     voxelMax.z = voxelMin.z + resolution;
 
-                    // Test intersection
                     if (triangleAABBIntersection(tri, voxelMin, voxelMax))
                     {
                         size_t voxelIndex = (size_t)z * gridY * gridX + (size_t)y * gridX + (size_t)x;
@@ -214,14 +196,12 @@ VoxelData VoxelEngine::voxelize(const ObjData& objData, float resolution)
             }
         }
 
-        // Progress indicator for large meshes
         if ((triIdx + 1) % 10000 == 0 || triIdx == triangles.size() - 1)
         {
             std::cout << "Processed " << (triIdx + 1) << "/" << triangles.size() << " triangles" << std::endl;
         }
     }
 
-    // Convert boolean grid to output positions
     std::vector<float> voxelX, voxelY, voxelZ;
     for (int z = 0; z < gridZ; z++)
     {
@@ -232,7 +212,6 @@ VoxelData VoxelEngine::voxelize(const ObjData& objData, float resolution)
                 size_t voxelIndex = (size_t)z * gridY * gridX + (size_t)y * gridX + (size_t)x;
                 if (filled[voxelIndex])
                 {
-                    // Calculate voxel center
                     float voxelCenterX = bbox.min.x + (x + 0.5f) * resolution;
                     float voxelCenterY = bbox.min.y + (y + 0.5f) * resolution;
                     float voxelCenterZ = bbox.min.z + (z + 0.5f) * resolution;
@@ -245,7 +224,6 @@ VoxelData VoxelEngine::voxelize(const ObjData& objData, float resolution)
         }
     }
 
-    // Allocate and copy data
     voxelData.count = voxelX.size();
     std::cout << "Generated " << voxelData.count << " voxels" << std::endl;
 
@@ -276,7 +254,6 @@ void VoxelEngine::normalize(VoxelData& data, float normalizeSize, float scale, c
     std::cout << "  Scale factor: " << scale << std::endl;
     std::cout << "  Displacement: (" << displacement.x << ", " << displacement.y << ", " << displacement.z << ")" << std::endl;
 
-    // Step 1: Find current bounding box of voxels
     float minX = data.pos[0][0], maxX = data.pos[0][0];
     float minY = data.pos[1][0], maxY = data.pos[1][0];
     float minZ = data.pos[2][0], maxZ = data.pos[2][0];
@@ -294,7 +271,6 @@ void VoxelEngine::normalize(VoxelData& data, float normalizeSize, float scale, c
     std::cout << "  Current bounds: (" << minX << ", " << minY << ", " << minZ << ") to ("
               << maxX << ", " << maxY << ", " << maxZ << ")" << std::endl;
 
-    // Step 2: Calculate the maximum dimension to maintain aspect ratio
     float sizeX = maxX - minX;
     float sizeY = maxY - minY;
     float sizeZ = maxZ - minZ;
@@ -309,7 +285,6 @@ void VoxelEngine::normalize(VoxelData& data, float normalizeSize, float scale, c
     std::cout << "  Current size: (" << sizeX << ", " << sizeY << ", " << sizeZ << ")" << std::endl;
     std::cout << "  Max dimension: " << maxDimension << std::endl;
 
-    // Step 3: Normalize to [0, normalizeSize] maintaining aspect ratio
     float normalizationScale = normalizeSize / maxDimension;
     float3 currentCenter = {
         (minX + maxX) * 0.5f,
@@ -317,20 +292,16 @@ void VoxelEngine::normalize(VoxelData& data, float normalizeSize, float scale, c
         (minZ + maxZ) * 0.5f
     };
 
-    // First, center at origin, then scale to normalized size
     for (size_t i = 0; i < data.count; i++)
     {
-        // Translate to origin
         data.pos[0][i] -= currentCenter.x;
         data.pos[1][i] -= currentCenter.y;
         data.pos[2][i] -= currentCenter.z;
 
-        // Scale to normalized size
         data.pos[0][i] *= normalizationScale;
         data.pos[1][i] *= normalizationScale;
         data.pos[2][i] *= normalizationScale;
 
-        // Translate to center of normalized space
         data.pos[0][i] += normalizeSize * 0.5f;
         data.pos[1][i] += normalizeSize * 0.5f;
         data.pos[2][i] += normalizeSize * 0.5f;
@@ -341,8 +312,6 @@ void VoxelEngine::normalize(VoxelData& data, float normalizeSize, float scale, c
               << normalizeSize * 0.5f << ", "
               << normalizeSize * 0.5f << ")" << std::endl;
 
-    // Step 4: Scale to target size on grid from center of normalized space
-    // Find current dimensions after normalization
     float currentMinX = data.pos[0][0], currentMaxX = data.pos[0][0];
     float currentMinY = data.pos[1][0], currentMaxY = data.pos[1][0];
     float currentMinZ = data.pos[2][0], currentMaxZ = data.pos[2][0];
@@ -362,7 +331,6 @@ void VoxelEngine::normalize(VoxelData& data, float normalizeSize, float scale, c
     float currentSizeZ = currentMaxZ - currentMinZ;
     float currentMaxDim = max3(currentSizeX, currentSizeY, currentSizeZ);
 
-    // Calculate scale factor: scale parameter is the target size for the longest dimension
     float targetMaxDimension = scale;
     float scaleFactorToTarget = (currentMaxDim > 1e-6f) ? (targetMaxDimension / currentMaxDim) : 1.0f;
 
@@ -370,17 +338,14 @@ void VoxelEngine::normalize(VoxelData& data, float normalizeSize, float scale, c
 
     for (size_t i = 0; i < data.count; i++)
     {
-        // Translate to scale center
         data.pos[0][i] -= scaleCenter.x;
         data.pos[1][i] -= scaleCenter.y;
         data.pos[2][i] -= scaleCenter.z;
 
-        // Apply scale to reach target size
         data.pos[0][i] *= scaleFactorToTarget;
         data.pos[1][i] *= scaleFactorToTarget;
         data.pos[2][i] *= scaleFactorToTarget;
 
-        // Translate back
         data.pos[0][i] += scaleCenter.x;
         data.pos[1][i] += scaleCenter.y;
         data.pos[2][i] += scaleCenter.z;
@@ -389,7 +354,6 @@ void VoxelEngine::normalize(VoxelData& data, float normalizeSize, float scale, c
     std::cout << "  After scaling: longest dimension = " << targetMaxDimension
               << " (scale factor: " << scaleFactorToTarget << "x)" << std::endl;
 
-    // Step 5: Apply displacement
     for (size_t i = 0; i < data.count; i++)
     {
         data.pos[0][i] += displacement.x;
@@ -399,26 +363,22 @@ void VoxelEngine::normalize(VoxelData& data, float normalizeSize, float scale, c
 
     std::cout << "  After displacement" << std::endl;
 
-    // Step 6: Snap voxels to discrete grid with resolution, expand to neighbors, and clamp to bounds
     std::cout << "  Snapping voxels to discrete grid (RESOLUTION) with 5x5x5 expansion and clamping to [0, " << normalizeSize << "]..." << std::endl;
 
     const float gridResolution = RESOLUTION;
     int maxGridIndex = (int)(normalizeSize / gridResolution);
-    const int expansionRadius = 2; // Will create 5 voxels per dimension (-2, -1, 0, +1, +2)
+    const int expansionRadius = 2;
 
-    // Use a set to store unique grid positions (to remove duplicates)
     std::set<std::tuple<int, int, int>> uniqueGridPositions;
     size_t voxelsClamped = 0;
     size_t voxelsOutOfBounds = 0;
 
     for (size_t i = 0; i < data.count; i++)
     {
-        // Round each coordinate to nearest grid position
         int gridX = (int)std::round(data.pos[0][i] / gridResolution);
         int gridY = (int)std::round(data.pos[1][i] / gridResolution);
         int gridZ = (int)std::round(data.pos[2][i] / gridResolution);
 
-        // Track if clamping is needed
         bool wasClamped = false;
         if (gridX < 0 || gridX > maxGridIndex ||
             gridY < 0 || gridY > maxGridIndex ||
@@ -428,14 +388,12 @@ void VoxelEngine::normalize(VoxelData& data, float normalizeSize, float scale, c
             voxelsOutOfBounds++;
         }
 
-        // Clamp to valid range [0, maxGridIndex]
         gridX = std::max(0, std::min(maxGridIndex, gridX));
         gridY = std::max(0, std::min(maxGridIndex, gridY));
         gridZ = std::max(0, std::min(maxGridIndex, gridZ));
 
         if (wasClamped) voxelsClamped++;
 
-        // Generate 5x5x5 voxels around the snapped position
         for (int dx = -expansionRadius; dx <= expansionRadius; dx++)
         {
             for (int dy = -expansionRadius; dy <= expansionRadius; dy++)
@@ -446,7 +404,6 @@ void VoxelEngine::normalize(VoxelData& data, float normalizeSize, float scale, c
                     int newY = gridY + dy;
                     int newZ = gridZ + dz;
 
-                    // Clamp to valid range
                     if (newX >= 0 && newX <= maxGridIndex &&
                         newY >= 0 && newY <= maxGridIndex &&
                         newZ >= 0 && newZ <= maxGridIndex)
@@ -468,7 +425,6 @@ void VoxelEngine::normalize(VoxelData& data, float normalizeSize, float scale, c
     std::cout << "  After 5x5x5 expansion: " << uniqueGridPositions.size() << " unique grid positions" << std::endl;
     std::cout << "  Expansion factor: " << ((float)uniqueGridPositions.size() / data.count) << "x" << std::endl;
 
-    // Convert back to arrays
     std::vector<float> snappedX, snappedY, snappedZ;
     for (const auto& gridPos : uniqueGridPositions)
     {
@@ -477,7 +433,6 @@ void VoxelEngine::normalize(VoxelData& data, float normalizeSize, float scale, c
         snappedZ.push_back(std::get<2>(gridPos) * gridResolution);
     }
 
-    // Replace data with snapped voxels
     delete[] data.pos[0];
     delete[] data.pos[1];
     delete[] data.pos[2];
@@ -493,7 +448,6 @@ void VoxelEngine::normalize(VoxelData& data, float normalizeSize, float scale, c
         std::copy(snappedY.begin(), snappedY.end(), data.pos[1]);
         std::copy(snappedZ.begin(), snappedZ.end(), data.pos[2]);
 
-        // Update bounding box after snapping
         minX = maxX = data.pos[0][0];
         minY = maxY = data.pos[1][0];
         minZ = maxZ = data.pos[2][0];
@@ -514,7 +468,6 @@ void VoxelEngine::normalize(VoxelData& data, float normalizeSize, float scale, c
         std::cout << "  Final snapped bounds: (" << minX << ", " << minY << ", " << minZ << ") to ("
                   << maxX << ", " << maxY << ", " << maxZ << ")" << std::endl;
 
-        // Print sample voxels to verify grid snapping
         std::cout << "\n  Sample voxels after grid snapping:" << std::endl;
         size_t samplesToShow = std::min((size_t)10, data.count);
         for (size_t i = 0; i < samplesToShow; i++)
@@ -552,19 +505,16 @@ void VoxelEngine::expandVoxels(VoxelData& data, int expansionRadius)
               << " per voxel)..." << std::endl;
 
     const float gridResolution = 0.1f;
-    int maxGridIndex = (int)(SIZE_X * 10); // Maximum grid index for SIZE_X range
+    int maxGridIndex = (int)(SIZE_X * 10);
 
-    // Use a set to store unique grid positions
     std::set<std::tuple<int, int, int>> uniqueGridPositions;
 
     for (size_t i = 0; i < data.count; i++)
     {
-        // Convert current position to grid indices
         int gridX = (int)std::round(data.pos[0][i] / gridResolution);
         int gridY = (int)std::round(data.pos[1][i] / gridResolution);
         int gridZ = (int)std::round(data.pos[2][i] / gridResolution);
 
-        // Generate (2*radius+1)^3 voxels around this position
         for (int dx = -expansionRadius; dx <= expansionRadius; dx++)
         {
             for (int dy = -expansionRadius; dy <= expansionRadius; dy++)
@@ -575,7 +525,6 @@ void VoxelEngine::expandVoxels(VoxelData& data, int expansionRadius)
                     int newY = gridY + dy;
                     int newZ = gridZ + dz;
 
-                    // Clamp to valid range [0, maxGridIndex]
                     if (newX >= 0 && newX <= maxGridIndex &&
                         newY >= 0 && newY <= maxGridIndex &&
                         newZ >= 0 && newZ <= maxGridIndex)
@@ -591,7 +540,6 @@ void VoxelEngine::expandVoxels(VoxelData& data, int expansionRadius)
     std::cout << "  Expanded voxel count: " << uniqueGridPositions.size() << std::endl;
     std::cout << "  Expansion factor: " << (float)uniqueGridPositions.size() / data.count << "x" << std::endl;
 
-    // Convert back to arrays
     std::vector<float> expandedX, expandedY, expandedZ;
     expandedX.reserve(uniqueGridPositions.size());
     expandedY.reserve(uniqueGridPositions.size());
@@ -604,7 +552,6 @@ void VoxelEngine::expandVoxels(VoxelData& data, int expansionRadius)
         expandedZ.push_back(std::get<2>(gridPos) * gridResolution);
     }
 
-    // Replace data with expanded voxels
     delete[] data.pos[0];
     delete[] data.pos[1];
     delete[] data.pos[2];
@@ -620,7 +567,6 @@ void VoxelEngine::expandVoxels(VoxelData& data, int expansionRadius)
         std::copy(expandedY.begin(), expandedY.end(), data.pos[1]);
         std::copy(expandedZ.begin(), expandedZ.end(), data.pos[2]);
 
-        // Update bounding box
         float minX = data.pos[0][0], maxX = data.pos[0][0];
         float minY = data.pos[1][0], maxY = data.pos[1][0];
         float minZ = data.pos[2][0], maxZ = data.pos[2][0];
@@ -664,14 +610,12 @@ void VoxelEngine::normalize(std::vector<Triangle>& triangles, float normalizeSiz
     std::cout << "  Scale factor: " << scale << std::endl;
     std::cout << "  Displacement: (" << displacement.x << ", " << displacement.y << ", " << displacement.z << ")" << std::endl;
 
-    // Step 1: Find current bounding box of all triangle vertices
     float minX = triangles[0].v0.x, maxX = triangles[0].v0.x;
     float minY = triangles[0].v0.y, maxY = triangles[0].v0.y;
     float minZ = triangles[0].v0.z, maxZ = triangles[0].v0.z;
 
     for (const auto& tri : triangles)
     {
-        // Check all three vertices
         minX = min3(minX, tri.v0.x, tri.v1.x);
         minX = std::min(minX, tri.v2.x);
         maxX = max3(maxX, tri.v0.x, tri.v1.x);
@@ -691,7 +635,6 @@ void VoxelEngine::normalize(std::vector<Triangle>& triangles, float normalizeSiz
     std::cout << "  Current bounds: (" << minX << ", " << minY << ", " << minZ << ") to ("
               << maxX << ", " << maxY << ", " << maxZ << ")" << std::endl;
 
-    // Step 2: Calculate the maximum dimension to maintain aspect ratio
     float sizeX = maxX - minX;
     float sizeY = maxY - minY;
     float sizeZ = maxZ - minZ;
@@ -706,7 +649,6 @@ void VoxelEngine::normalize(std::vector<Triangle>& triangles, float normalizeSiz
     std::cout << "  Current size: (" << sizeX << ", " << sizeY << ", " << sizeZ << ")" << std::endl;
     std::cout << "  Max dimension: " << maxDimension << std::endl;
 
-    // Step 3: Normalize to [0, normalizeSize] maintaining aspect ratio
     float normalizationScale = normalizeSize / maxDimension;
     float3 currentCenter = {
         (minX + maxX) * 0.5f,
@@ -714,25 +656,20 @@ void VoxelEngine::normalize(std::vector<Triangle>& triangles, float normalizeSiz
         (minZ + maxZ) * 0.5f
     };
 
-    // Lambda to transform a single vertex
     auto transformVertex = [&](float3& vertex) {
-        // Translate to origin
         vertex.x -= currentCenter.x;
         vertex.y -= currentCenter.y;
         vertex.z -= currentCenter.z;
 
-        // Scale to normalized size
         vertex.x *= normalizationScale;
         vertex.y *= normalizationScale;
         vertex.z *= normalizationScale;
 
-        // Translate to center of normalized space
         vertex.x += normalizeSize * 0.5f;
         vertex.y += normalizeSize * 0.5f;
         vertex.z += normalizeSize * 0.5f;
     };
 
-    // Apply normalization to all vertices
     for (auto& tri : triangles)
     {
         transformVertex(tri.v0);
@@ -745,8 +682,6 @@ void VoxelEngine::normalize(std::vector<Triangle>& triangles, float normalizeSiz
               << normalizeSize * 0.5f << ", "
               << normalizeSize * 0.5f << ")" << std::endl;
 
-    // Step 4: Scale to target size on grid from center of normalized space
-    // Find current dimensions after normalization
     float currentMinX = triangles[0].v0.x, currentMaxX = triangles[0].v0.x;
     float currentMinY = triangles[0].v0.y, currentMaxY = triangles[0].v0.y;
     float currentMinZ = triangles[0].v0.z, currentMaxZ = triangles[0].v0.z;
@@ -774,24 +709,20 @@ void VoxelEngine::normalize(std::vector<Triangle>& triangles, float normalizeSiz
     float currentSizeZ = currentMaxZ - currentMinZ;
     float currentMaxDim = max3(currentSizeX, currentSizeY, currentSizeZ);
 
-    // Calculate scale factor: scale parameter is the target size for the longest dimension
     float targetMaxDimension = scale;
     float scaleFactorToTarget = (currentMaxDim > 1e-6f) ? (targetMaxDimension / currentMaxDim) : 1.0f;
 
     float3 scaleCenter = {normalizeSize * 0.5f, normalizeSize * 0.5f, normalizeSize * 0.5f};
 
     auto scaleVertex = [&](float3& vertex) {
-        // Translate to scale center
         vertex.x -= scaleCenter.x;
         vertex.y -= scaleCenter.y;
         vertex.z -= scaleCenter.z;
 
-        // Apply scale to reach target size
         vertex.x *= scaleFactorToTarget;
         vertex.y *= scaleFactorToTarget;
         vertex.z *= scaleFactorToTarget;
 
-        // Translate back
         vertex.x += scaleCenter.x;
         vertex.y += scaleCenter.y;
         vertex.z += scaleCenter.z;
@@ -807,7 +738,6 @@ void VoxelEngine::normalize(std::vector<Triangle>& triangles, float normalizeSiz
     std::cout << "  After scaling: longest dimension = " << targetMaxDimension
               << " (scale factor: " << scaleFactorToTarget << "x)" << std::endl;
 
-    // Step 5: Apply displacement
     for (auto& tri : triangles)
     {
         tri.v0.x += displacement.x;
@@ -825,13 +755,11 @@ void VoxelEngine::normalize(std::vector<Triangle>& triangles, float normalizeSiz
 
     std::cout << "  After displacement" << std::endl;
 
-    // Step 6: Filter out triangles that are completely outside normalization bounds [0, normalizeSize]
     std::vector<Triangle> validTriangles;
     size_t removedCount = 0;
 
     for (const auto& tri : triangles)
     {
-        // Check if at least one vertex is within bounds
         bool v0Valid = (tri.v0.x >= 0.0f && tri.v0.x <= normalizeSize &&
                         tri.v0.y >= 0.0f && tri.v0.y <= normalizeSize &&
                         tri.v0.z >= 0.0f && tri.v0.z <= normalizeSize);
@@ -844,7 +772,6 @@ void VoxelEngine::normalize(std::vector<Triangle>& triangles, float normalizeSiz
                         tri.v2.y >= 0.0f && tri.v2.y <= normalizeSize &&
                         tri.v2.z >= 0.0f && tri.v2.z <= normalizeSize);
 
-        // Keep triangle if at least one vertex is within bounds
         if (v0Valid || v1Valid || v2Valid)
         {
             validTriangles.push_back(tri);
@@ -855,7 +782,6 @@ void VoxelEngine::normalize(std::vector<Triangle>& triangles, float normalizeSiz
         }
     }
 
-    // Replace triangles with filtered ones
     if (validTriangles.size() != triangles.size())
     {
         std::cout << "  Removed " << removedCount << " triangles completely outside bounds [0, " << normalizeSize << "]" << std::endl;
@@ -864,7 +790,6 @@ void VoxelEngine::normalize(std::vector<Triangle>& triangles, float normalizeSiz
         triangles = std::move(validTriangles);
     }
 
-    // Calculate and display final bounds
     if (!triangles.empty())
     {
         minX = maxX = triangles[0].v0.x;
@@ -941,16 +866,14 @@ std::vector<Triangle> VoxelEngine::extractTriangles(const ObjData& objData)
         {
             int fv = shape.mesh.num_face_vertices[f];
 
-            if (fv == 3) // Only triangles
+            if (fv == 3)
             {
                 Triangle tri;
 
-                // Get vertex indices
                 tinyobj::index_t idx0 = shape.mesh.indices[indexOffset + 0];
                 tinyobj::index_t idx1 = shape.mesh.indices[indexOffset + 1];
                 tinyobj::index_t idx2 = shape.mesh.indices[indexOffset + 2];
 
-                // Get vertex positions
                 tri.v0.x = objData.attrib.vertices[3 * idx0.vertex_index + 0];
                 tri.v0.y = objData.attrib.vertices[3 * idx0.vertex_index + 1];
                 tri.v0.z = objData.attrib.vertices[3 * idx0.vertex_index + 2];
@@ -975,7 +898,6 @@ std::vector<Triangle> VoxelEngine::extractTriangles(const ObjData& objData)
 
 
 
-// Separating Axis Theorem (SAT) based triangle-AABB intersection
 bool VoxelEngine::triangleAABBIntersection(const Triangle& tri, const float3& boxMin, const float3& boxMax)
 {
     float3 boxCenter;
@@ -988,27 +910,21 @@ bool VoxelEngine::triangleAABBIntersection(const Triangle& tri, const float3& bo
     boxHalfSize.y = (boxMax.y - boxMin.y) * 0.5f;
     boxHalfSize.z = (boxMax.z - boxMin.z) * 0.5f;
 
-    // Translate triangle to box center
     float3 v0 = subtract(tri.v0, boxCenter);
     float3 v1 = subtract(tri.v1, boxCenter);
     float3 v2 = subtract(tri.v2, boxCenter);
 
-    // Compute edge vectors
     float3 e0 = subtract(v1, v0);
     float3 e1 = subtract(v2, v1);
     float3 e2 = subtract(v0, v2);
 
-    // Test the 9 edge cross-product axes
     float3 axes[9];
-    // e0 cross product with box axes
     axes[0] = {0, -e0.z, e0.y};
     axes[1] = {e0.z, 0, -e0.x};
     axes[2] = {-e0.y, e0.x, 0};
-    // e1 cross product with box axes
     axes[3] = {0, -e1.z, e1.y};
     axes[4] = {e1.z, 0, -e1.x};
     axes[5] = {-e1.y, e1.x, 0};
-    // e2 cross product with box axes
     axes[6] = {0, -e2.z, e2.y};
     axes[7] = {e2.z, 0, -e2.x};
     axes[8] = {-e2.y, e2.x, 0};
@@ -1027,12 +943,10 @@ bool VoxelEngine::triangleAABBIntersection(const Triangle& tri, const float3& bo
             return false;
     }
 
-    // Test the 3 face normals from the AABB
     if (max3(v0.x, v1.x, v2.x) < -boxHalfSize.x || min3(v0.x, v1.x, v2.x) > boxHalfSize.x) return false;
     if (max3(v0.y, v1.y, v2.y) < -boxHalfSize.y || min3(v0.y, v1.y, v2.y) > boxHalfSize.y) return false;
     if (max3(v0.z, v1.z, v2.z) < -boxHalfSize.z || min3(v0.z, v1.z, v2.z) > boxHalfSize.z) return false;
 
-    // Test the triangle normal
     float3 normal = crossProduct(e0, e1);
     float d = dotProduct(normal, v0);
     float r = boxHalfSize.x * std::abs(normal.x) +

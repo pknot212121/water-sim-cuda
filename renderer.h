@@ -34,14 +34,14 @@ class Renderer
         bool closed = false;
         bool paused = true;
         bool pKeyWasPressed = false;
-        bool wireframeMode = false; // Tryb renderowania konturów
-        bool lKeyWasPressed = false; // Debouncing dla klawisza L
-        bool glassMode = false; // Tryb szklanego renderowania (przeźroczysty)
-        bool gKeyWasPressed = false; // Debouncing dla klawisza G
-        bool f11KeyWasPressed = false; // Debouncing dla klawisza F11
-        float zoomDistance = SIZE_Z * 2.0f; // Odległość kamery od centrum
+        bool wireframeMode = false; 
+        bool lKeyWasPressed = false;
+        bool glassMode = false;
+        bool gKeyWasPressed = false;
+        bool f11KeyWasPressed = false;
+        float zoomDistance = SIZE_Z * 2.0f;
 
-        // Zmienne dla fullscreen i resize
+
         bool isFullscreen = false;
         int currentWidth = SCREEN_WIDTH;
         int currentHeight = SCREEN_HEIGHT;
