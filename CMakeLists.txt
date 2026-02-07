@@ -2,6 +2,12 @@ cmake_minimum_required(VERSION 4.1)
 project(water LANGUAGES CXX CUDA)
 
 set(CMAKE_CXX_STANDARD 20)
+
+if(WIN32)
+    set(VCPKG_TARGET_TRIPLET "x64-windows-static" CACHE STRING "")
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+endif ()
+
 find_package(CUDAToolkit REQUIRED)
 add_executable(water
         engine.h
@@ -41,8 +47,7 @@ find_package(nlohmann_json CONFIG REQUIRED)
 find_package(glfw3 CONFIG REQUIRED)
 find_package(glad CONFIG REQUIRED)
 find_package(glm CONFIG REQUIRED)
-
-
+set(CUDA_USE_STATIC_CUDA_RUNTIME ON)
 target_link_libraries(water
     PRIVATE
     CUDA::cuda_driver
@@ -54,3 +59,6 @@ target_link_libraries(water
     glm::glm
 )
 
+if(MINGW)
+    target_link_options(life-sim PRIVATE -static-libgcc -static-libstdc++ -static)
+endif()
