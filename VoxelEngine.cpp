@@ -9,6 +9,7 @@
 
 
 #include "common.cuh"
+#include "game_configdata.h"
 
 VoxelData::VoxelData() : count(0), resolution(0.0f)
 {
@@ -365,7 +366,7 @@ void VoxelEngine::normalize(VoxelData& data, float normalizeSize, float scale, c
 
     std::cout << "  Snapping voxels to discrete grid (RESOLUTION) with 5x5x5 expansion and clamping to [0, " << normalizeSize << "]..." << std::endl;
 
-    const float gridResolution = RESOLUTION;
+    const float gridResolution = GameConfigData::getInt("RESOLUTION");
     int maxGridIndex = (int)(normalizeSize / gridResolution);
     const int expansionRadius = 2;
 
@@ -505,7 +506,7 @@ void VoxelEngine::expandVoxels(VoxelData& data, int expansionRadius)
               << " per voxel)..." << std::endl;
 
     const float gridResolution = 0.1f;
-    int maxGridIndex = (int)(SIZE_X * 10);
+    int maxGridIndex = (GameConfigData::getInt("SIZE_X") * 10);
 
     std::set<std::tuple<int, int, int>> uniqueGridPositions;
 

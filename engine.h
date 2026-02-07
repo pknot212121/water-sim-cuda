@@ -14,11 +14,12 @@
 class Engine
 {
     public:
-        Engine(int n, float *h_buffer);
+        Engine() = default;
         ~Engine();
+        void init(int n, float *h_buffer);
         void step();
         inline Particles getParticles(){ return Particles(d_buffer,number); }
-        inline Grid getGrid(){return Grid(d_grid_buffer,d_sdf_buffer);};
+        inline Grid getGrid(){return Grid(d_grid_buffer,d_sdf_buffer,GameConfigData::getInt("GRID_NUMBER"));};
         inline float3* getPositions(){return positionsToOpenGL;}
         void initParticles();
         void sortParticles();

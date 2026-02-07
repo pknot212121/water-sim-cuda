@@ -25,12 +25,12 @@ __global__ void p2GTransferScatter(Particles p,Grid g,int number,int* sortedIndi
     for(int i=0; i<9; i++) oldF[i] = p.f[i][particleIdx];
     float J = det3x3(oldF);
     J = fmaxf(0.9f, fminf(J, 1.1f));
-    float pressure = COMPRESSION * (powf(J,GAMMA) - 1.0f);
+    float pressure = d_config.COMPRESSION * (powf(J,d_config.GAMMA) - 1.0f);
     if (pressure < 0.0f) pressure = 0.0f;
     float volume = p.v[particleIdx] * J;
     float stressTerm[9] = {1.0f,0.0f,0.0f,0.0f,1.0f,0.0f,0.0f,0.0f,1.0f};
 
-    float multi = 4.0f * DT * volume * pressure / pM;
+    float multi = 4.0f * d_config.DT * volume * pressure / pM;
     multiply3x3ByConst(multi,stressTerm,stressTerm);
     add3x3(oldC,stressTerm,oldC);
 
@@ -144,7 +144,7 @@ __global__ void p2GTransferScatter(Particles p,Grid g,int number,int* sortedIndi
 __global__ void gridUpdate(Grid g)
 {
     const int threadIndex = blockIdx.x * blockDim.x + threadIdx.x;
-    int x = threadIndex % SIZE_X; int y = (threadIndex / SIZE_X) % SIZE_Y; int z = threadIndex / (SIZE_X*SIZE_Y);
+    int x = threadIndex % d_config.SIZE_X; int y = (threadIndex / d_config.SIZE_X) % d_config.SIZE_Y; int z = threadIndex / (d_config.SIZE_X*d_config.SIZE_Y);
     float mass = g.mass[threadIndex];
     float dist = g.sdf[threadIndex];
     float3 momentum = {g.momentum[0][threadIndex],g.momentum[1][threadIndex],g.momentum[2][threadIndex]};
@@ -152,7 +152,7 @@ __global__ void gridUpdate(Grid g)
     if (mass> 1e-9f)
     {
         velocity.x = momentum.x/mass;
-        velocity.y = momentum.y/mass - GRAVITY*DT;
+        velocity.y = momentum.y/mass - d_config.GRAVITY*d_config.DT;
         velocity.z = momentum.z/mass;
         if (dist < 0.0f)
         {
@@ -182,13 +182,13 @@ __global__ void gridUpdate(Grid g)
         //     velocity.z *= sqrt(factor);
         // }
 
-        if (x<PADDING && velocity.x<0) velocity.x=0.0f;
-        if (y<PADDING && velocity.y<0) velocity.y=0.0f;
-        if (z<PADDING && velocity.z<0) velocity.z=0.0f;
+        if (x<d_config.PADDING && velocity.x<0) velocity.x=0.0f;
+        if (y<d_config.PADDING && velocity.y<0) velocity.y=0.0f;
+        if (z<d_config.PADDING && velocity.z<0) velocity.z=0.0f;
 
-        if (x>SIZE_X-1-PADDING && velocity.x>0) velocity.x=0.0f;
-        if (y>SIZE_Y-1-PADDING && velocity.y>0) velocity.y=0.0f;
-        if (z>SIZE_Z-1-PADDING && velocity.z>0) velocity.z=0.0f;
+        if (x>d_config.SIZE_X-1-d_config.PADDING && velocity.x>0) velocity.x=0.0f;
+        if (y>d_config.SIZE_Y-1-d_config.PADDING && velocity.y>0) velocity.y=0.0f;
+        if (z>d_config.SIZE_Z-1-d_config.PADDING && velocity.z>0) velocity.z=0.0f;
 
         g.momentum[0][threadIndex] = velocity.x; g.momentum[1][threadIndex] = velocity.y; g.momentum[2][threadIndex] = velocity.z;
     }
@@ -246,7 +246,7 @@ __global__ void g2PTransfer(Particles p, Grid g,int number,int *sortedIndices)
         for (int i = 0; i < 9; i++) newF[i] *= scale;
     }
 
-    float3 nextPos = {p.pos[0][particleIdx] + totalVel.x * DT,p.pos[1][particleIdx] + totalVel.y * DT,p.pos[2][particleIdx] + totalVel.z * DT};
+    float3 nextPos = {p.pos[0][particleIdx] + totalVel.x * d_config.DT,p.pos[1][particleIdx] + totalVel.y * d_config.DT,p.pos[2][particleIdx] + totalVel.z * d_config.DT};
 
     float dist = getSDF(nextPos, g);
     if (dist < 0.0f)
@@ -282,8 +282,8 @@ __global__ void g2PTransfer(Particles p, Grid g,int number,int *sortedIndices)
 __global__ void makeSDF(float* sdfGrid,const Triangle* __restrict__ triangles,int triangleNumber)
 {
     const int threadIndex = blockIdx.x * blockDim.x + threadIdx.x;
-    if (threadIndex>=SIZE_X*SIZE_Y*SIZE_Z) return;
-    int x = threadIndex % SIZE_X; int y = (threadIndex / SIZE_X) % SIZE_Y; int z = threadIndex / (SIZE_X*SIZE_Y);
+    if (threadIndex>=d_config.SIZE_X*d_config.SIZE_Y*d_config.SIZE_Z) return;
+    int x = threadIndex % d_config.SIZE_X; int y = (threadIndex / d_config.SIZE_X) % d_config.SIZE_Y; int z = threadIndex / (d_config.SIZE_X*d_config.SIZE_Y);
     float3 P = {x*1.0f,y*1.0f,z*1.0f};
     float totalWindingNumber = 0.0f;
     float minDistSq = 1e30f;
@@ -353,7 +353,7 @@ __global__ void initFMatrices(Particles p,int number)
     p.f[0][threadIndex] = 1.0f;
     p.f[4][threadIndex] = 1.0f;
     p.f[8][threadIndex] = 1.0f;
-    p.v[threadIndex] = RESOLUTION*RESOLUTION*RESOLUTION;
+    p.v[threadIndex] = d_config.RESOLUTION*d_config.RESOLUTION*d_config.RESOLUTION;
     p.m[threadIndex] = 1.0f;
 }
 

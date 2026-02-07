@@ -5,6 +5,7 @@
 #include <cuda_runtime_api.h>
 // #include <c++/13/cstdint>
 #include <cstdint>
+#include "game_configdata.h"
 #include <cmath>
 
 /* ---- CONSTS FOR PARTICLES ---- */
@@ -30,16 +31,15 @@ constexpr size_t PARTICLE_SIZE = PARTICLE_ATTRIBUTE_COUNT * sizeof(float);
 
 
 /* ---- CONSTS FOR GRID ---- */
-constexpr size_t SIZE_X = 128;
-constexpr size_t SIZE_Y = 128;
-constexpr size_t SIZE_Z = 128;
-constexpr size_t PADDING = 2;
+// constexpr size_t SIZE_X = 128;
+// constexpr size_t SIZE_Y = 128;
+// constexpr size_t SIZE_Z = 128;
+// constexpr size_t PADDING = 2;
 
 constexpr size_t CELL_ATTRIBUTE_COUNT = 4;
 constexpr size_t CELL_SIZE = CELL_ATTRIBUTE_COUNT*sizeof(float);
 
-constexpr size_t GRID_SIZE = SIZE_X*SIZE_Y*SIZE_Z*CELL_SIZE;
-constexpr size_t GRID_NUMBER = SIZE_X*SIZE_Y*SIZE_Z;
+
 
 
 
@@ -48,23 +48,42 @@ constexpr size_t GRID_NUMBER = SIZE_X*SIZE_Y*SIZE_Z;
 /* ---- OTHER CONSTS ---- */
 constexpr size_t THREADS_PER_BLOCK = 256;
 
-constexpr float GRAVITY = 9.81f;
-constexpr float DT = 0.001f;
-//constexpr float DT = 0.0001f;
-//constexpr float DT = 0.00005f;
-constexpr float GAMMA = -3.0f;
-//constexpr float COMPRESSION = 500.0f;
-constexpr float COMPRESSION = 800.0f;
-constexpr float RESOLUTION = 1.0f;
-constexpr int SUBSTEPS = 50;
+// constexpr float GRAVITY = 9.81f;
+// constexpr float DT = 0.001f;
+// constexpr float GAMMA = -3.0f;
+// constexpr float COMPRESSION = 800.0f;
+// constexpr float RESOLUTION = 1.0f;
+// constexpr int SUBSTEPS = 50;
 constexpr int SHARED_GRID_HEIGHT = 11;
-constexpr int SDF_RESOLUTION = 256;
+// constexpr int SDF_RESOLUTION = 256;
 constexpr int SHARED_GRID_SIZE = SHARED_GRID_HEIGHT*SHARED_GRID_HEIGHT*SHARED_GRID_HEIGHT;
-constexpr size_t GRID_BLOCKS = (GRID_NUMBER + THREADS_PER_BLOCK-1) / THREADS_PER_BLOCK;
+
 constexpr bool PHASING = false;
 
 
 /* ---- GLOBAL STRUCTURES ---- */
+struct SimConfig
+{
+    uint32_t SIZE_X,SIZE_Y,SIZE_Z;
+    uint32_t PADDING;
+    float GRAVITY;
+    float DT;
+    float GAMMA;
+    float COMPRESSION;
+    float RESOLUTION;
+    uint32_t SUBSTEPS;
+    uint32_t SDF_RESOLUTION;
+    uint32_t GRID_SIZE;
+    uint32_t GRID_NUMBER;
+    uint32_t GRID_BLOCKS;
+};
+
+#ifdef __CUDACC__
+extern __constant__ SimConfig d_config;
+#endif
+
+void uploadConfigToGPU(const SimConfig& h_config);
+
 struct __align__(16) Particles
 {
     float* pos[3];
@@ -93,10 +112,10 @@ struct __align__(16) Grid
     float* mass;
     float* momentum[3];
     float* sdf;
-    __host__ __device__ Grid(float* buffer,float* sdfBuffer)
+    __host__ __device__ Grid(float* buffer,float* sdfBuffer,uint32_t grid_number)
     {
-        mass = buffer + GRID_NUMBER * 0;
-        for (int i=0;i<3;i++) momentum[i] = buffer + GRID_NUMBER * (i+1);
+        mass = buffer + grid_number * 0;
+        for (int i=0;i<3;i++) momentum[i] = buffer + grid_number * (i+1);
         sdf = sdfBuffer;
     }
 };
@@ -107,12 +126,11 @@ struct Triangle
 };
 
 
-
 /* ---- GLOBAL FUNCTIONS ---- */
 #ifdef __CUDACC__
-__host__ __device__ inline int getGridIdx(int x,int y,int z)
+__device__ inline int getGridIdx(int x,int y,int z)
 {
-    return z * SIZE_X*SIZE_Y + y * SIZE_X + x;
+    return z * d_config.SIZE_X*d_config.SIZE_Y + y * d_config.SIZE_X + x;
 }
 
 __device__ inline float getSDF(float3 p,Grid g)
@@ -122,9 +140,9 @@ __device__ inline float getSDF(float3 p,Grid g)
 
     auto sample = [&](int x,int y,int z)
     {
-        x = max(0,min(x,(int)SIZE_X -1));
-        y = max(0,min(y,(int)SIZE_Y -1));
-        z = max(0,min(z,(int)SIZE_Z -1));
+        x = max(0,min(x,(int)d_config.SIZE_X -1));
+        y = max(0,min(y,(int)d_config.SIZE_Y -1));
+        z = max(0,min(z,(int)d_config.SIZE_Z -1));
         return g.sdf[getGridIdx(x,y,z)];
     };
 
@@ -165,8 +183,7 @@ __device__ inline float3 calculateNormal(float3 pos,Grid g)
 
 
 
-__device__ __forceinline__ float3 multiplyCxd(
-        float* C, float3 d)
+__device__ __forceinline__ float3 multiplyCxd(float* C, float3 d)
 {
     return float3(
         C[0]*d.x+C[1]*d.y+C[2]*d.z,
@@ -177,26 +194,26 @@ __device__ __forceinline__ float3 multiplyCxd(
 
 __device__ inline float3 getNormalAtNode(int x, int y, int z, Grid g) {
     float* sdfGrid = g.sdf;
-    float nx = sdfGrid[getGridIdx(min(x+1, (int)SIZE_X-1), y, z)] - sdfGrid[getGridIdx(max(x-1, 0), y, z)];
-    float ny = sdfGrid[getGridIdx(x, min(y+1, (int)SIZE_Y-1), z)] - sdfGrid[getGridIdx(x, max(y-1, 0), z)];
-    float nz = sdfGrid[getGridIdx(x, y, min(z+1, (int)SIZE_Z-1))] - sdfGrid[getGridIdx(x, y, max(z-1, 0))];
+    float nx = sdfGrid[getGridIdx(min(x+1, (int)d_config.SIZE_X-1), y, z)] - sdfGrid[getGridIdx(max(x-1, 0), y, z)];
+    float ny = sdfGrid[getGridIdx(x, min(y+1, (int)d_config.SIZE_Y-1), z)] - sdfGrid[getGridIdx(x, max(y-1, 0), z)];
+    float nz = sdfGrid[getGridIdx(x, y, min(z+1, (int)d_config.SIZE_Z-1))] - sdfGrid[getGridIdx(x, y, max(z-1, 0))];
 
     float len = sqrtf(nx*nx + ny*ny + nz*nz) + 1e-9f;
     return {nx/len, ny/len, nz/len};
 }
 
-__host__ __device__ inline float spline(float x)
+__device__ inline float spline(float x)
 {
     if (fabsf(x)<0.5) return 0.75-x*x;
     if (fabsf(x)>=0.5 && fabsf(x)<1.5) return (1.5-fabsf(x))*(1.5-fabsf(x))*0.5;
     return 0.0f;
 }
 
-__host__ __device__ inline bool isInBounds(int x,int y,int z)
+__device__ inline bool isInBounds(int x,int y,int z)
 {
-    if (x<0 || x>=SIZE_X) return false;
-    if (y<0 || y>=SIZE_Y) return false;
-    if (z<0 || z>=SIZE_Z) return false;
+    if (x<0 || x>=d_config.SIZE_X) return false;
+    if (y<0 || y>=d_config.SIZE_Y) return false;
+    if (z<0 || z>=d_config.SIZE_Z) return false;
     return true;
 }
 
@@ -238,7 +255,7 @@ __device__ __forceinline__ float det3x3(float *A)
 __device__ inline void calculateNewF(float *C,float *oldF,float *newF)
 {
     float I[9] = {1.0f,0.0f,0.0f,0.0f,1.0f,0.0f,0.0f,0.0f,1.0f};
-    multiply3x3ByConst(DT,C,C);
+    multiply3x3ByConst(d_config.DT,C,C);
     add3x3(I,C,C);
     multiply3x3(C,oldF,newF);
 }
@@ -248,11 +265,11 @@ __device__ inline void forceC(float vP,float P,float mass,float* fC)
     float I[9] = {1.0f,0.0f,0.0f,0.0f,1.0f,0.0f,0.0f,0.0f,1.0f};
     if (mass>0.0001)
     {
-        multiply3x3ByConst(4.0f*DT*vP*P/mass,I,fC);
+        multiply3x3ByConst(4.0f*d_config.DT*vP*P/mass,I,fC);
     }
     else
     {
-        multiply3x3ByConst(4.0f*DT*vP*P,I,fC);
+        multiply3x3ByConst(4.0f*d_config.DT*vP*P,I,fC);
     }
 
 }
@@ -266,20 +283,20 @@ __device__ inline unsigned int expandBits(unsigned int v)
     return v;
 }
 
-__host__ __device__ inline float3 operator-(float3 a,float3 b)
+__device__ inline float3 operator-(float3 a,float3 b)
 {
     return make_float3(a.x-b.x,a.y-b.y,a.z-b.z);
 }
-__host__ __device__ inline float3 operator+(float3 a,float3 b)
+__device__ inline float3 operator+(float3 a,float3 b)
 {
     return make_float3(a.x+b.x,a.y+b.y,a.z+b.z);
 }
 
-__host__ __device__ inline float3 operator*(float a,float3 b)
+__device__ inline float3 operator*(float a,float3 b)
 {
     return make_float3(a*b.x,a*b.y,a*b.z);
 }
-__host__ __device__ inline float3 operator*(float3 b,float a)
+__device__ inline float3 operator*(float3 b,float a)
 {
     return make_float3(a*b.x,a*b.y,a*b.z);
 }

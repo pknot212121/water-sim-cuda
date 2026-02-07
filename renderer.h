@@ -4,7 +4,7 @@
 #include <cuda_gl_interop.h>
 #include <vector>
 #include "VoxelEngine.h"
-
+#include "game_configdata.h"
 #include "common.cuh"
 #include "resource_manager.h"
 
@@ -14,8 +14,9 @@ constexpr int SCREEN_HEIGHT = 1600;
 class Renderer
 {
     public:
-        Renderer(int number);
+        Renderer();
         ~Renderer();
+        void init(int number);
         void draw(int number,float3* positionsFromCUDA);
         void setupShaders();
         void setupQuad();
@@ -39,7 +40,7 @@ class Renderer
         bool glassMode = false;
         bool gKeyWasPressed = false;
         bool f11KeyWasPressed = false;
-        float zoomDistance = SIZE_Z * 2.0f;
+        float zoomDistance;
 
 
         bool isFullscreen = false;
@@ -57,4 +58,7 @@ class Renderer
         GLuint quadVbo,quadVao; /* TEMP FOR VIEWING FBO */
         int triCount = 0;
         cudaGraphicsResource* cudaResource;
+        glm::mat4 projection;
+        glm::mat4 view;
+        glm::mat4 model;
 };

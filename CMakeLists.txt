@@ -1,18 +1,14 @@
-cmake_minimum_required(VERSION 4.1)
+cmake_minimum_required(VERSION 3.16)
 project(water LANGUAGES CXX CUDA)
 
 set(CMAKE_CXX_STANDARD 20)
-
-if(WIN32)
-    set(VCPKG_TARGET_TRIPLET "x64-windows-static" CACHE STRING "")
-    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
-endif ()
 
 find_package(CUDAToolkit REQUIRED)
 add_executable(water
         engine.h
         engine.cu
         common.cuh
+        config.cu
         ObjLoader.h
         ObjLoader.cpp
         VoxelEngine.h
@@ -25,11 +21,12 @@ add_executable(water
         kernels.cu
         renderer.cpp
         renderer.h
-        renderer.h
         shader.cpp
         shader.h
         resource_manager.h
-        resource_manager.cpp)
+        resource_manager.cpp
+        game_configdata.h
+        game_configdata.cpp)
 
 # --- Windows Compatibility Fixes ---
 if(MSVC)
@@ -48,6 +45,7 @@ find_package(glfw3 CONFIG REQUIRED)
 find_package(glad CONFIG REQUIRED)
 find_package(glm CONFIG REQUIRED)
 set(CUDA_USE_STATIC_CUDA_RUNTIME ON)
+set_target_properties(water PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 target_link_libraries(water
     PRIVATE
     CUDA::cuda_driver
@@ -58,7 +56,3 @@ target_link_libraries(water
     glad::glad
     glm::glm
 )
-
-if(MINGW)
-    target_link_options(life-sim PRIVATE -static-libgcc -static-libstdc++ -static)
-endif()

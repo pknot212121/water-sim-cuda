@@ -3,6 +3,8 @@
 #include<fstream>
 #include<vector>
 
+#include "game_configdata.h"
+
 __global__ void testKernel(Particles p,int number);
 __global__ void g2PTransfer(Particles p, Grid g,int number,int *sortedIndices);
 __global__ void p2GTransferScatter(Particles p,Grid g,int number,int* sortedIndices);
@@ -31,16 +33,6 @@ size_t roundUp(size_t value,size_t rounder)
     else return ((value + rounder - 1) / rounder) * rounder;
 }
 
-
-Engine::Engine(int n, float *h_buffer)
-{
-    number = n;
-    this->h_buffer = h_buffer;
-    blocksPerGrid = (number+THREADS_PER_BLOCK-1) / THREADS_PER_BLOCK;
-    initParticles();
-    initGrid();
-}
-
 Engine::~Engine()
 {
     delete[] h_buffer;
@@ -50,17 +42,26 @@ Engine::~Engine()
     cudaFree(d_cell_offsets);
 }
 
+void Engine::init(int n, float* h_buffer)
+{
+    number = n;
+    this->h_buffer = h_buffer;
+    blocksPerGrid = (number+THREADS_PER_BLOCK-1) / THREADS_PER_BLOCK;
+    initParticles();
+    initGrid();
+}
+
 void Engine::step()
 {
 
     sortParticles();
     // testKernel<<<blocksPerGrid,THREADS_PER_BLOCK>>>(getParticles(),number);
     // handleCUDAError(cudaDeviceSynchronize());
-    emptyGrid<<<GRID_BLOCKS,THREADS_PER_BLOCK>>>(getGrid());
+    emptyGrid<<<GameConfigData::getInt("GRID_BLOCKS"),THREADS_PER_BLOCK>>>(getGrid());
     handleCUDAError(cudaDeviceSynchronize());
     p2GTransferScatter<<<blocksPerGrid,THREADS_PER_BLOCK>>>(getParticles(),getGrid(),number,d_values);
     handleCUDAError(cudaDeviceSynchronize());
-    gridUpdate<<<GRID_BLOCKS,THREADS_PER_BLOCK>>>(getGrid());
+    gridUpdate<<<GameConfigData::getInt("GRID_BLOCKS"),THREADS_PER_BLOCK>>>(getGrid());
     handleCUDAError(cudaDeviceSynchronize());
     g2PTransfer<<<blocksPerGrid,THREADS_PER_BLOCK>>>(getParticles(),getGrid(),number,d_values);
     handleCUDAError(cudaDeviceSynchronize());
@@ -72,7 +73,7 @@ void Engine::initParticles()
 {
     handleCUDAError(cudaMalloc((void**)&d_buffer, number * PARTICLE_SIZE));
     handleCUDAError(cudaMalloc((void**)&d_values,number*sizeof(int)));
-    handleCUDAError(cudaMalloc((void**)&d_cell_offsets,GRID_NUMBER*sizeof(int)));
+    handleCUDAError(cudaMalloc((void**)&d_cell_offsets,GameConfigData::getInt("GRID_NUMBER")*sizeof(int)));
     handleCUDAError(cudaMalloc((void**)&positionsToOpenGL,number*sizeof(float3)));
     handleCUDAError(cudaMemcpy(d_buffer, h_buffer, number * PARTICLE_SIZE, cudaMemcpyHostToDevice));
 
@@ -84,8 +85,8 @@ void Engine::initParticles()
 
 void Engine::initGrid()
 {
-    handleCUDAError(cudaMalloc((void**)&d_grid_buffer,GRID_SIZE));
-    handleCUDAError(cudaMemset(d_grid_buffer,0.0f,GRID_SIZE));
+    handleCUDAError(cudaMalloc((void**)&d_grid_buffer,GameConfigData::getInt("GRID_SIZE")));
+    handleCUDAError(cudaMemset(d_grid_buffer,0.0f,GameConfigData::getInt("GRID_SIZE")));
 }
 
 void Engine::sortParticles()
@@ -104,10 +105,10 @@ void Engine::sortParticles()
 void Engine::initSDF(std::vector<Triangle> triangles)
 {
     Triangle* d_triangles;
-    handleCUDAError(cudaMalloc((void**)&d_sdf_buffer,GRID_SIZE));
+    handleCUDAError(cudaMalloc((void**)&d_sdf_buffer,GameConfigData::getInt("GRID_SIZE")));
     handleCUDAError(cudaMalloc((void**)&d_triangles,triangles.size()*sizeof(Triangle)));
     handleCUDAError(cudaMemcpy(d_triangles,triangles.data(),triangles.size()*sizeof(Triangle),cudaMemcpyHostToDevice));
-    makeSDF<<<GRID_BLOCKS,THREADS_PER_BLOCK>>>(d_sdf_buffer,d_triangles,triangles.size());
+    makeSDF<<<GameConfigData::getInt("GRID_BLOCKS"),THREADS_PER_BLOCK>>>(d_sdf_buffer,d_triangles,triangles.size());
     handleCUDAError(cudaDeviceSynchronize());
     handleCUDAError(cudaFree(d_triangles));
 }

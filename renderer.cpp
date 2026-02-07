@@ -5,9 +5,9 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <glm/gtc/type_ptr.hpp>
 
-glm::mat4 projection = glm::perspective(glm::radians(45.0f),(float)SCREEN_WIDTH/SCREEN_HEIGHT,0.1f,5000.0f);
-glm::mat4 view = glm::lookAt(glm::vec3(SIZE_X/2,SIZE_Y/2,SIZE_Z*2),glm::vec3(SIZE_X/2,SIZE_Y/2,SIZE_Z/2),glm::vec3(0.0f,1.0f,0.0f));
-glm::mat4 model = glm::mat4(1.0f);
+
+
+
 
 void mouse_button_callback(GLFWwindow* window, int button, int action, int mods)
 {
@@ -36,7 +36,7 @@ void framebuffer_size_callback(GLFWwindow* window, int width, int height)
     }
 }
 
-Renderer::Renderer(int number)
+Renderer::Renderer()
 {
     glfwInit();
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
@@ -61,20 +61,7 @@ Renderer::Renderer(int number)
     //glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    glGenVertexArrays(1,&vao);
-    glGenBuffers(1,&vbo);
 
-    glBindVertexArray(vao);
-    glBindBuffer(GL_ARRAY_BUFFER,vbo);
-
-    glBufferData(GL_ARRAY_BUFFER,number*sizeof(float3),NULL,GL_DYNAMIC_DRAW);
-    glVertexAttribPointer(0,3,GL_FLOAT,GL_FALSE, sizeof(float3), (void*)0);
-    glEnableVertexAttribArray(0);
-
-    setupFramebuffer();
-    setupQuad();
-    cudaGraphicsGLRegisterBuffer(&cudaResource,vbo,cudaGraphicsMapFlagsWriteDiscard);
-    setupShaders();
 }
 
 Renderer::~Renderer()
@@ -92,6 +79,31 @@ Renderer::~Renderer()
     ResourceManager::Clear();
     glfwTerminate();
 }
+
+void Renderer::init(int number)
+{
+    glGenVertexArrays(1,&vao);
+    glGenBuffers(1,&vbo);
+
+    glBindVertexArray(vao);
+    glBindBuffer(GL_ARRAY_BUFFER,vbo);
+
+    glBufferData(GL_ARRAY_BUFFER,number*sizeof(float3),NULL,GL_DYNAMIC_DRAW);
+    glVertexAttribPointer(0,3,GL_FLOAT,GL_FALSE, sizeof(float3), (void*)0);
+    glEnableVertexAttribArray(0);
+
+    zoomDistance = GameConfigData::getInt("SIZE_Z") * 2.0f;
+    projection = glm::perspective(glm::radians(45.0f),(float)SCREEN_WIDTH/SCREEN_HEIGHT,0.1f,5000.0f);
+    view = glm::lookAt(glm::vec3(GameConfigData::getInt("SIZE_X")/2,GameConfigData::getInt("SIZE_Y")/2,GameConfigData::getInt("SIZE_Z")*2),
+            glm::vec3(GameConfigData::getInt("SIZE_X")/2,GameConfigData::getInt("SIZE_Y")/2,GameConfigData::getInt("SIZE_Z")/2),glm::vec3(0.0f,1.0f,0.0f));
+    model = glm::mat4(1.0f);
+    setupFramebuffer();
+    setupQuad();
+    cudaGraphicsGLRegisterBuffer(&cudaResource,vbo,cudaGraphicsMapFlagsWriteDiscard);
+    setupShaders();
+
+}
+
 /* I NEED A WRAPPER FOR TEXTURES HOLY SHIT */
 void Renderer::draw(int number,float3* positionsFromCUDA)
 {
@@ -169,10 +181,10 @@ void Renderer::draw(int number,float3* positionsFromCUDA)
     cudaMemcpy(positionsVBO,positionsFromCUDA,number*sizeof(float3),cudaMemcpyDeviceToDevice);
     cudaGraphicsUnmapResources(1,&cudaResource,0);
 
-    glm::vec3 center(SIZE_X / 2.0f, SIZE_Y / 2.0f, SIZE_Z / 2.0f);
+    glm::vec3 center(GameConfigData::getInt("SIZE_X")/2.0f,GameConfigData::getInt("SIZE_Y")/2.0f,GameConfigData::getInt("SIZE_Z")/2.0f);
 
 
-    glm::vec3 cameraPos = glm::vec3(SIZE_X / 2.0f, SIZE_Y / 2.0f, zoomDistance);
+    glm::vec3 cameraPos = glm::vec3(GameConfigData::getInt("SIZE_X")/2.0f,GameConfigData::getInt("SIZE_Y")/2.0f, zoomDistance);
     auto view = glm::lookAt(cameraPos, center, glm::vec3(0.0f, 1.0f, 0.0f));
 
     auto model = glm::mat4(1.0f);

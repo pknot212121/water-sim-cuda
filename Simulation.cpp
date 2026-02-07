@@ -1,19 +1,29 @@
 #include "Simulation.h"
 #include "common.cuh"
 
-Simulation::Simulation() : engine(createEngine()), renderer(engine.getNumber()) // Initialize engine with 1 million particles
+Simulation::Simulation()
 {
-    std::vector<std::vector<Triangle>> triangleObjects = {
-        // Prepare_triangles("models/Glass_Cup.obj",76.8f,{0.0f,0.0f,0.0f}),
-        //Prepare_triangles("models/box.obj",100.0f,{0.0f,0.0f,0.0f})
-        //Prepare_triangles("models/connected_containers.obj",128.0f,{0.0f,0.0f,0.0f})
-        //Prepare_triangles("models/blender/shape_1_1.obj",110.0f,{0.0f,-10.0f,0.0f})
-        //Prepare_triangles("models/blender/shape_2.obj",110.0f,{0.0f,-10.0f,0.0f})
-        //Prepare_triangles("models/blender/pipe_system.obj",110.0f,{0.0f,-10.0f,10.0f})
-        //Prepare_triangles("models/blender/box_open.obj",110.0f,{0.0f,-10.0f,0.0f})
-        Prepare_triangles("models/blender/u.obj",110.0f,{0.0f,-10.0f,0.0f})
-        //Prepare_triangles("models/blender/bottle.obj",110.0f,{0.0f,-10.0f,0.0f})
+    GameConfigData::setConfigDataFromFile("config.txt");
+    initDeviceParams();
+    this->objLoader = ObjLoader();
+    this->voxelEngine = VoxelEngine();
+    this->voxelPipeline = VoxelPipeline();
+    std::vector<VoxelData> voxelObjects = {
+        Prepare_object("models/sphere.obj",35.0f, {0.0f,20.0f,25.0f}),
+    };
+    VoxelData combinedVoxelData = MergeVoxelData(voxelObjects);
+    std::vector<float> combinedResult = voxelPipeline.process(combinedVoxelData);
+    size_t bufferSize = combinedResult.size();
+    float* h_buffer = new float[bufferSize]();
+    std::copy(combinedResult.begin(), combinedResult.end(), h_buffer);
 
+    initDeviceParams();
+    engine.init(bufferSize / 26, h_buffer);
+    renderer.init(engine.getNumber());
+
+    std::vector<std::vector<Triangle>> triangleObjects =
+    {
+        Prepare_triangles("models/blender/u.obj",110.0f,{0.0f,-10.0f,0.0f})
     };
 
     std::vector<Triangle> allTriangles = MergeTriangles(triangleObjects);
@@ -28,7 +38,7 @@ void Simulation::run() {
      while (!renderer.isWindowClosed()) {
          if (!renderer.isPaused())
          {
-             for (int i=0;i<SUBSTEPS;i++)
+             for (int i=0;i<GameConfigData::getInt("SUBSTEPS");i++)
              {
                  this->engine.step();
              }
@@ -38,31 +48,29 @@ void Simulation::run() {
     }
 }
 
-Engine Simulation::createEngine() {
-    this->objLoader = ObjLoader();
-    this->voxelEngine = VoxelEngine();
-    this->voxelPipeline = VoxelPipeline();
-
-
-    std::vector<VoxelData> voxelObjects = {
-        //Prepare_object("models/sphere.obj",9.0f, {0.0f,9.0f,0.0f}),  // displacement can be any value - VoxelEngine will clamp to [0,SIZE_X]
-        Prepare_object("models/sphere.obj",35.0f, {0.0f,20.0f,25.0f}),  // displacement can be any value - VoxelEngine will clamp to [0,SIZE_X]
-        //Prepare_object("models/sphere.obj",15.0f, {0.0f,45.0f,25.0f}),  // displacement can be any value - VoxelEngine will clamp to [0,SIZE_X]
-        //Prepare_object("models/sphere.obj",40.0f, {0.0f,40.0f,0.0f}),  // displacement can be any value - VoxelEngine will clamp to [0,SIZE_X]
-        // Prepare_object("models/sphere.obj",48.0f, {50.0f,50.0f,0.0f}),
-        //Prepare_object("models/u.obj",100.0f,{0.0f,.0f,0.0f})
-    };
-
-    VoxelData combinedVoxelData = MergeVoxelData(voxelObjects);
-
-
-    std::vector<float> combinedResult = voxelPipeline.process(combinedVoxelData);
-
-    size_t bufferSize = combinedResult.size();
-    float* h_buffer = new float[bufferSize]();
-    std::copy(combinedResult.begin(), combinedResult.end(), h_buffer);
-    return Engine(bufferSize / 26, h_buffer);
+void Simulation::initDeviceParams()
+{
+    SimConfig h_cfg;
+    h_cfg.SIZE_X = GameConfigData::getInt("SIZE_X");
+    h_cfg.SIZE_Y = GameConfigData::getInt("SIZE_Y");
+    h_cfg.SIZE_Z = GameConfigData::getInt("SIZE_Z");
+    h_cfg.PADDING = GameConfigData::getInt("PADDING");
+    h_cfg.GRAVITY = GameConfigData::getFloat("GRAVITY");
+    h_cfg.DT = GameConfigData::getFloat("DT");
+    h_cfg.GAMMA = GameConfigData::getFloat("GAMMA");
+    h_cfg.COMPRESSION = GameConfigData::getFloat("COMPRESSION");
+    h_cfg.RESOLUTION = GameConfigData::getFloat("RESOLUTION");
+    h_cfg.SUBSTEPS = GameConfigData::getInt("SUBSTEPS");
+    h_cfg.SDF_RESOLUTION = GameConfigData::getInt("SDF_RESOLUTION");
+    h_cfg.GRID_SIZE = h_cfg.SIZE_X*h_cfg.SIZE_Y*h_cfg.SIZE_Z*CELL_SIZE;
+    h_cfg.GRID_NUMBER = h_cfg.SIZE_X*h_cfg.SIZE_Y*h_cfg.SIZE_Z;
+    h_cfg.GRID_BLOCKS = (h_cfg.GRID_NUMBER + THREADS_PER_BLOCK-1) / THREADS_PER_BLOCK;
+    GameConfigData::setNewInt("GRID_SIZE",std::to_string(h_cfg.GRID_SIZE));
+    GameConfigData::setNewInt("GRID_NUMBER",std::to_string(h_cfg.GRID_NUMBER));
+    GameConfigData::setNewInt("GRID_BLOCKS",std::to_string(h_cfg.GRID_BLOCKS));
+    uploadConfigToGPU(h_cfg);
 }
+
 
 VoxelData Simulation::Prepare_object(const std::string& objPath, float scale, float3 displacement) {
     ObjData objData = objLoader.loadObj(objPath);
@@ -73,7 +81,7 @@ VoxelData Simulation::Prepare_object(const std::string& objPath, float scale, fl
     if (voxelData.count < 1)
         throw std::runtime_error("Failed to load voxel data");
 
-    voxelEngine.normalize(voxelData, SIZE_X, scale, displacement);
+    voxelEngine.normalize(voxelData, GameConfigData::getInt("SIZE_X"), scale, displacement);
 
     return voxelData;
 }
@@ -96,7 +104,7 @@ std::vector<Triangle> Simulation::Prepare_triangles(const std::string& objPath, 
             return std::vector<Triangle>();
         }
 
-        voxelEngine.normalize(coliderTriangles, SIZE_X, scale, displacement);
+        voxelEngine.normalize(coliderTriangles, GameConfigData::getInt("SIZE_X"), scale, displacement);
 
         return coliderTriangles;
     }
