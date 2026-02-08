@@ -11,7 +11,7 @@ Should work on all computers with nvidia graphics cards with pascal architecture
 
 - Go into the releases page for [linux](https://github.com/pknot212121/water-sim-cuda/releases/tag/linux) or for windows.
 - Download and unpack the zip file inside
-- Activate the executable in the file
+- Activate the executable in the directory
 
 ## Controls
 
@@ -20,7 +20,7 @@ While inside the simulation you can use the following controls:
 | Key    | Action                                                                  |
 |--------|-------------------------------------------------------------------------|
 | WASD   | Controls to move through the simulation on two axis                     |
-| P      | Starts the simulation                                                   |
+| P      | Starts / stops the simulation                                           |
 | L      | Changes display type of objects to wireframe (off by default)           |
 | G      | Changes display type of objects to translucent (glass) (off by default) |
 | F11    | Fullscreen                                                              | |
