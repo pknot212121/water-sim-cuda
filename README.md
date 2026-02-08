@@ -9,7 +9,7 @@ Should work on all computers with nvidia graphics cards with pascal architecture
 
 ## Setup Guide
 
-- Go into the releases page for [linux](https://github.com/pknot212121/water-sim-cuda/releases/tag/linux) or for windows.
+- Go into the releases page for [linux](https://github.com/pknot212121/water-sim-cuda/releases/tag/linux) or for [windows](https://github.com/pknot212121/water-sim-cuda/releases/tag/windows).
 - Download and unpack the zip file inside
 - Activate the executable in the directory
 
