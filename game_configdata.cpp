@@ -1,8 +1,23 @@
 #include "game_configdata.h"
 #include <iostream>
 #include <algorithm>
+#include <sstream>
 
 std::unordered_map<std::string, std::string> GameConfigData::configMap;
+std::vector<ConfigObject> GameConfigData::waters;
+std::vector<ConfigObject> GameConfigData::objects;
+
+std::vector<std::string> GameConfigData::split(const std::string& s, char delimiter)
+{
+    std::vector<std::string> tokens;
+    std::string token;
+    std::istringstream tokenStream(s);
+    while (std::getline(tokenStream,token,delimiter))
+    {
+        tokens.push_back(token);
+    }
+    return tokens;
+}
 
 void GameConfigData::setConfigDataFromFile(std::string filename)
 {
@@ -17,7 +32,23 @@ void GameConfigData::setConfigDataFromFile(std::string filename)
         {
             std::string key = line.substr(0,pos);
             std::string value = line.substr(pos+1);
-            configMap[key]=value;
+            if (key=="WATER" || key == "OBJECT")
+            {
+                std::vector<std::string> parts = split(value,';');
+                if (parts.size() >= 5)
+                {
+                    ConfigObject obj;
+                    obj.modelPath = parts[0];
+                    obj.scale = std::stof(parts[1]);
+                    obj.x = std::stof(parts[2]);
+                    obj.y = std::stof(parts[3]);
+                    obj.z = std::stof(parts[4]);
+                    if (key=="WATER") waters.push_back(obj);
+                    else objects.push_back(obj);
+                }
+                else{std::cerr << "ŹLE ZAKODOWANE " << key << " O WARTOŚCI " << value << std::endl; exit(1);}
+            }
+            else configMap[key]=value;
         }
     }
 }

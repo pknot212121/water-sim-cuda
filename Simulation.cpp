@@ -8,9 +8,12 @@ Simulation::Simulation()
     this->objLoader = ObjLoader();
     this->voxelEngine = VoxelEngine();
     this->voxelPipeline = VoxelPipeline();
-    std::vector<VoxelData> voxelObjects = {
-        Prepare_object("models/sphere.obj",35.0f, {0.0f,20.0f,25.0f}),
-    };
+    std::vector<VoxelData> voxelObjects;
+    std::vector<ConfigObject> waters = GameConfigData::getWaters();
+    for (auto& water : waters)
+    {
+        voxelObjects.push_back(Prepare_object(water.modelPath,water.scale,{water.x,water.y,water.z}));
+    }
     VoxelData combinedVoxelData = MergeVoxelData(voxelObjects);
     std::vector<float> combinedResult = voxelPipeline.process(combinedVoxelData);
     size_t bufferSize = combinedResult.size();
@@ -21,10 +24,12 @@ Simulation::Simulation()
     engine.init(bufferSize / 26, h_buffer);
     renderer.init(engine.getNumber());
 
-    std::vector<std::vector<Triangle>> triangleObjects =
+    std::vector<std::vector<Triangle>> triangleObjects;
+    std::vector<ConfigObject> objects = GameConfigData::getObjects();
+    for (auto& obj : objects)
     {
-        Prepare_triangles("models/blender/u.obj",110.0f,{0.0f,-10.0f,0.0f})
-    };
+        triangleObjects.push_back(Prepare_triangles(obj.modelPath,obj.scale,{obj.x,obj.y,obj.z}));
+    }
 
     std::vector<Triangle> allTriangles = MergeTriangles(triangleObjects);
     renderer.setTriangles(allTriangles);
