@@ -15,4 +15,4 @@ SDF_RESOLUTION=256
 WATER=models/sphere.obj;15.0;0.0;20.0;25.0
 WATER=models/sphere.obj;15.0;10.0;20.0;25.0
 
-OBJECT=models/blender/u.obj;110.0;0.0;-10.0;0.0
+OBJECT=models/u.obj;110.0;0.0;-10.0;0.0
