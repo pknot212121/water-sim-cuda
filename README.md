@@ -4,7 +4,7 @@
 A fluid simulation with collisions using SDFs and great customizability. Both the initial fluid positions and collision objects are based on 3d .obj models. Also works mostly in real time (depends heavily on DT parameter).
 
 ## Requirements
-Should work on all computers with nvidia graphics cards with pascal architecture (10xx) or higher. Tested only on GTX 1050 and RTX 3060.
+The linux version should work on all computers with graphics cards with architectures Pascal (10XX) or higher and CUDA version 12.2 or higher. The windows version unfortunately only works on RTX (40XX) cards with CUDA at least 13.1. 
 
 
 ## Setup Guide
