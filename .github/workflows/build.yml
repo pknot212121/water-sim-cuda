@@ -1,0 +1,47 @@
+name: CUDA & OpenGL Build Check
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build-cuda:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        submodules: true
+
+    - name: Install System Dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y \
+          libgl1-mesa-dev libx11-dev libxrandr-dev libxinerama-dev \
+          libxcursor-dev libxi-dev ninja-build
+
+    - name: Install CUDA Toolkit
+      uses: jimbo00000/install-cuda@v2
+      with:
+        cuda: '12.1.0'
+        method: 'network'
+
+    - name: Restore vcpkg binary cache
+      uses: actions/cache@v4
+      with:
+        path: ~/.cache/vcpkg
+        key: ${{ runner.os }}-vcpkg-cuda-${{ hashFiles('vcpkg.json') }}
+
+    - name: Configure CMake
+      run: |
+        cmake -B build \
+          -DCMAKE_BUILD_TYPE=Release \
+          -DCMAKE_TOOLCHAIN_FILE=$VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake \
+          -DCMAKE_CUDA_ARCHITECTURES=75 \
+          -G Ninja
+
+    - name: Build
+      run: cmake --build build --config Release
