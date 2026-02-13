@@ -104,7 +104,7 @@ jobs:
         method: 'local'
         use-github-cache: 'true'
         linux-local-args: '["--toolkit"]'
-        sub-packages: '["nvcc", "cudart", "cublas", "curand"]'
+        sub-packages: '["nvcc", "cudart", "cublas", "curand","visual_studio_integration"]'
 
     - run: |
         echo "Installed cuda version is: ${{steps.cuda-toolkit.outputs.cuda}}"
