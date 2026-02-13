@@ -4,6 +4,12 @@ set(CMAKE_CUDA_ARCHITECTURES 61 75 86 89-real 89-virtual)
 
 project(water LANGUAGES CXX CUDA)
 
+if(MSVC)
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
+    set(CUDA_USE_STATIC_CUDA_RUNTIME ON)
+
+endif ()
+
 set(CMAKE_CXX_STANDARD 20)
 
 find_package(CUDAToolkit REQUIRED)
@@ -34,10 +40,11 @@ add_executable(water
 # --- Windows Compatibility Fixes ---
 if(MSVC)
     target_compile_definitions(water PRIVATE NOMINMAX)
-    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
     target_compile_options(water PRIVATE
             $<$<COMPILE_LANGUAGE:CXX>:/Zc:preprocessor>
+
             $<$<COMPILE_LANGUAGE:CUDA>:-Xcompiler=/Zc:preprocessor>
+            $<$<COMPILE_LANGUAGE:CUDA>:-Xcompiler=/MT>
     )
 endif()
 # ----------------------------------
@@ -47,7 +54,7 @@ find_package(nlohmann_json CONFIG REQUIRED)
 find_package(glfw3 CONFIG REQUIRED)
 find_package(glad CONFIG REQUIRED)
 find_package(glm CONFIG REQUIRED)
-set(CUDA_USE_STATIC_CUDA_RUNTIME ON)
+
 set_target_properties(water PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 target_link_libraries(water
     PRIVATE
