@@ -3,11 +3,12 @@ name: CUDA & OpenGL Build Check
 on:
   push:
     branches: [ "master" ]
+    tags: [ "v*" ]
   pull_request:
     branches: [ "master" ]
 
 jobs:
-  build-cuda:
+  build-linux:
     runs-on: ubuntu-22.04
     
     steps:
@@ -151,5 +152,40 @@ jobs:
       uses: actions/upload-artifact@v4
       with:
         name: water-sim-windows-binary
-        path: water-sim-windows-cuda.zip
+        path: release_windows/
       
+
+
+
+
+  create-release:
+    needs: [ build-linux, build-windows ]
+    permissions:
+      contents: write
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Linux Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: water-sim-build-linux
+          path: ./linux-dist
+
+      - name: Download Windows Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: water-sim-windows-binary
+          path: ./windows-dist
+
+      - name: Archive artifacts
+        run: |
+          tar -czf water-sim-${{ github.ref_name }}-linux-x64.tar.gz -C linux-dist .
+          zip -jr water-sim-${{ github.ref_name }}-windows-x64.zip windows-dist/*
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            water-sim-${{ github.ref_name }}-linux-x64.tar.gz
+            water-sim-${{ github.ref_name }}-windows-x64.zip
+          body: "Automated build for version ${{ github.ref_name }}"
