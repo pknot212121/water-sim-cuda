@@ -9,7 +9,7 @@ on:
 jobs:
   build-cuda:
     runs-on: ubuntu-22.04
-
+    
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -44,8 +44,7 @@ jobs:
       uses: Jimver/cuda-toolkit@v0.2.20
       with:
         cuda: '12.2.0'
-        method: 'local'
-        use-github-cache: 'true'
+        method: 'network'
         linux-local-args: '["--toolkit"]'
 
     - name: Restore vcpkg binary cache
@@ -78,4 +77,59 @@ jobs:
       with:
         name: water-sim-build-linux
         path: release_paczka/
+
+
+
+        
+  build-windows:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      with:
+        submodules: true
+        
+    - name: Install CUDA Toolkit
+      uses: Jimver/cuda-toolkit@v0.2.20
+      with:
+        cuda: '12.2.0'
+        method: 'network'
+
+
+    - name: Restore vcpkg binary cache
+      uses: actions/cache@v4
+      with:
+        path: |
+          $VCPKG_INSTALLATION_ROOT/installed
+          ~/.cache/vcpkg
+        key: ${{ runner.os }}-vcpkg-cuda-${{ hashFiles('vcpkg.json') }}
+
+    - name: Configure CMake
+      run: |
+        cmake -B build `
+          -DCMAKE_BUILD_TYPE=Release `
+          -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" `
+          -DCMAKE_CUDA_ARCHITECTURES="61;75;86;89-real;89-virtual"
+
+    - name: Build
+      run: cmake --build build --config Release
+
+    - name: Prepare Windows Package
+      shell: pwsh
+      run: |
+        mkdir release_windows
+        Get-ChildItem -Path build -Filter "water.exe" -Recurse | Copy-Item -Destination release_windows/
+        
+        if (Test-Path "shaders") { Copy-Item -Path "shaders" -Destination "release_windows/" -Recurse }
+        if (Test-Path "models") { Copy-Item -Path "textures" -Destination "release_windows/" -Recurse }
+        if (Test-Path "config.txt") { Copy-Item -Path "config.txt" -Destination "release_windows/" }
+        
+        Compress-Archive -Path release_windows/* -DestinationPath water-sim-windows-cuda.zip
+
+    - name: Upload Windows result
+      uses: actions/upload-artifact@v4
+      with:
+        name: water-sim-windows-binary
+        path: water-sim-windows-cuda.zip
       
