@@ -96,6 +96,7 @@ jobs:
         cuda: '12.2.0'
         method: 'local'
         use-github-cache: 'true'
+        linux-local-args: '["--toolkit"]'
         sub-packages: '["nvcc", "cudart", "cublas", "curand"]'
 
 
