@@ -14,7 +14,17 @@ jobs:
     - name: Checkout code
       uses: actions/checkout@v4
       with:
-        submodules: true
+       submodules: true
+
+    - name: Free Disk Space (Ubuntu)
+      uses: jlumbroso/free-disk-space@main
+      with:
+        tool-cache: true
+        android: true
+        dotnet: true
+        haskell: true
+        large-packages: true
+        swap-storage: true
 
     - name: Install System Dependencies
       run: |
@@ -34,6 +44,8 @@ jobs:
       uses: Jimver/cuda-toolkit@v0.2.20
       with:
         cuda: '12.2.0'
+        method: 'network'
+        linux-local-args: '["--toolkit"]'
 
     - name: Restore vcpkg binary cache
       uses: actions/cache@v4
