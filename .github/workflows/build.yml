@@ -141,7 +141,7 @@ jobs:
         Get-ChildItem -Path build -Filter "water.exe" -Recurse | Copy-Item -Destination release_windows/
         
         if (Test-Path "shaders") { Copy-Item -Path "shaders" -Destination "release_windows/" -Recurse }
-        if (Test-Path "models") { Copy-Item -Path "textures" -Destination "release_windows/" -Recurse }
+        if (Test-Path "models") { Copy-Item -Path "models" -Destination "release_windows/" -Recurse }
         if (Test-Path "config.txt") { Copy-Item -Path "config.txt" -Destination "release_windows/" }
         
         Compress-Archive -Path release_windows/* -DestinationPath water-sim-windows-cuda.zip
