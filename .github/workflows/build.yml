@@ -126,6 +126,7 @@ jobs:
       run: |
         cmake -B build `
           -DCMAKE_BUILD_TYPE=Release `
+          -DVCPKG_TARGET_TRIPLET=x64-windows-static `
           -DCMAKE_CUDA_COMPILER="$($env:CUDA_PATH)/bin/nvcc.exe" `
           -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" `
           -DCMAKE_CUDA_ARCHITECTURES="61;75;86;89-real;89-virtual" `

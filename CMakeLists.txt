@@ -34,7 +34,7 @@ add_executable(water
 # --- Windows Compatibility Fixes ---
 if(MSVC)
     target_compile_definitions(water PRIVATE NOMINMAX)
-
+    set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
     target_compile_options(water PRIVATE
             $<$<COMPILE_LANGUAGE:CXX>:/Zc:preprocessor>
             $<$<COMPILE_LANGUAGE:CUDA>:-Xcompiler=/Zc:preprocessor>
