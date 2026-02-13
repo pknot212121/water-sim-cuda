@@ -82,7 +82,7 @@ jobs:
 
         
   build-windows:
-    runs-on: windows-latest
+    runs-on: windows-2022
 
     steps:
     - name: Checkout code
@@ -90,14 +90,14 @@ jobs:
       with:
         submodules: true
         
-    - name: Install CUDA Toolkit
-      uses: Jimver/cuda-toolkit@v0.2.20
-      with:
-        cuda: '12.2.0'
-        method: 'local'
-        use-github-cache: 'true'
-        linux-local-args: '["--toolkit"]'
-        sub-packages: '["nvcc", "cudart", "cublas", "curand", "visual_studio"]'
+#    - name: Install CUDA Toolkit
+#      uses: Jimver/cuda-toolkit@v0.2.20
+#      with:
+#        cuda: '12.2.0'
+#        method: 'local'
+#        use-github-cache: 'true'
+#        linux-local-args: '["--toolkit"]'
+#        sub-packages: '["nvcc", "cudart", "cublas", "curand", "visual_studio"]'
 
 
     - name: Restore vcpkg binary cache
