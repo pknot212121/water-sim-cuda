@@ -90,11 +90,13 @@ jobs:
       with:
         submodules: true
         
-#    - name: Install CUDA Toolkit
-#      uses: Jimver/cuda-toolkit@v0.2.20
-#      with:
-#        cuda: '12.2.0'
-#        method: 'network'
+    - name: Install CUDA Toolkit
+      uses: Jimver/cuda-toolkit@v0.2.20
+      with:
+        cuda: '12.2.0'
+        method: 'local'
+        use-github-cache: 'true'
+        sub-packages: '["nvcc", "cudart", "cublas", "curand"]'
 
 
     - name: Restore vcpkg binary cache
