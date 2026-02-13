@@ -70,7 +70,7 @@ jobs:
         mkdir release_paczka
         cp build/water release_paczka/
         cp -r shaders release_paczka/
-        cp -r textures release_paczka/
+        cp -r models release_paczka/
         cp config.txt release_paczka/
         tar -czvf water-sim-linux-cuda.tar.gz -C release_paczka .
 
