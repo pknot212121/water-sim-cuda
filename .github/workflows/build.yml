@@ -97,15 +97,22 @@ jobs:
           nvcc --version
         }
         
-#    - name: Install CUDA Toolkit
-#      uses: Jimver/cuda-toolkit@v0.2.20
-#      with:
-#        cuda: '12.2.0'
-#        method: 'local'
-#        use-github-cache: 'true'
-#        linux-local-args: '["--toolkit"]'
-#        sub-packages: '["nvcc", "cudart", "cublas", "curand", "visual_studio"]'
+    - name: Install CUDA Toolkit
+      uses: Jimver/cuda-toolkit@v0.2.20
+      with:
+        cuda: '12.2.0'
+        method: 'local'
+        use-github-cache: 'true'
+        linux-local-args: '["--toolkit"]'
+        sub-packages: '["nvcc", "cudart", "cublas", "curand"]'
 
+    - run: |
+        echo "Installed cuda version is: ${{steps.cuda-toolkit.outputs.cuda}}"
+
+    - run: | 
+        echo "Cuda install location: ${{steps.cuda-toolkit.outputs.CUDA_PATH}}"
+
+    - run: nvcc -V
 
     - name: Restore vcpkg binary cache
       uses: actions/cache@v4
