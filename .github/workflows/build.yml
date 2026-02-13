@@ -19,11 +19,11 @@ jobs:
     - name: Free Disk Space (Ubuntu)
       uses: jlumbroso/free-disk-space@main
       with:
-        tool-cache: true
-        android: true
+        tool-cache: false
+        android: false
         dotnet: true
         haskell: true
-        large-packages: true
+        large-packages: false
         swap-storage: true
 
     - name: Install System Dependencies
@@ -58,7 +58,7 @@ jobs:
         cmake -B build \
           -DCMAKE_BUILD_TYPE=Release \
           -DCMAKE_TOOLCHAIN_FILE=$VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake \
-          -DCMAKE_CUDA_ARCHITECTURES=75 \
+          -DCMAKE_CUDA_ARCHITECTURES="61;75;86;89-real;89-virtual" \
           -G Ninja
 
     - name: Build
