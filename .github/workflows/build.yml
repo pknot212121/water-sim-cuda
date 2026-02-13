@@ -74,10 +74,9 @@ jobs:
         cp config.txt release_paczka/
         tar -czvf water-sim-linux-cuda.tar.gz -C release_paczka .
 
-    - name: Create GitHub Release
-      if: startsWith(github.ref, 'refs/tags/')
-      uses: softprops/action-gh-release@v1
+    - name: Upload result
+      uses: actions/upload-artifact@v4
       with:
-        files: water-sim-linux-cuda.tar.gz
-      env:
-        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        name: water-sim-build-linux
+        path: life-sim-linux-cuda.tar.gz
+      
