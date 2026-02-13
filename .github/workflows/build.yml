@@ -100,7 +100,7 @@ jobs:
     - name: Install CUDA Toolkit
       uses: Jimver/cuda-toolkit@v0.2.20
       with:
-        cuda: '12.2.0'
+        cuda: '12.4.0'
         method: 'local'
         use-github-cache: 'true'
         linux-local-args: '["--toolkit"]'
