@@ -72,11 +72,10 @@ jobs:
         cp -r shaders release_paczka/
         cp -r models release_paczka/
         cp config.txt release_paczka/
-        tar -czvf water-sim-linux-cuda.tar.gz -C release_paczka .
 
     - name: Upload result
       uses: actions/upload-artifact@v4
       with:
         name: water-sim-build-linux
-        path: life-sim-linux-cuda.tar.gz
+        path: release_paczka/
       
